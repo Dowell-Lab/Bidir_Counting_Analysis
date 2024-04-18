@@ -1,8 +1,30 @@
 # Bidir_Counting_Analysis
 This repo includes the generalizable pipeline for identification, counting, and length assessments of Bidirectionals from nascent RNA seq data
 
-## Universal variables/outputs:
-* 
+## Variables/Parameters to choose:
+* SRC = path to this repository (e.g. ~/Bidir_Counting_Analysis/)
+* WD = directory where all output will be saved
+* Count_Limit_Bids = the number required for a bidirectional to be considered impeding on gene transcription (I did 25 for 4 samples)
+* Count_Limit_Genes = the number required for a gene to be considered transcribed enough to convolute bid counting (I did 40 for 4 samples)
+* Prefix = string prefix to refer to project (e.g. Sasse2019_nascent)
+* Date = string to refer to the date this pipeline is run
+
+## Output (all in WD)
+* regions/
+    * Count regions for bidirectionals: ${prefix}_MUMERGE_tfit,dreg_${date}_filt.saf
+    * TSS bidirectionals: tss_bid_${prefix}_${date}.txt
+    * Count regions for genes: ${prefix}_new_regions_len_posneg_gene_filt_divconv_diff53prim_5ptrunc_${date}.gtf
+* overlaps/
+    * Overlaps with TSS 1kb regions (including putative refseq isoforms): overlaps_hg38_TSS1kb_withput_${prefix}_MUMERGE_${date}.bed
+    * Overlaps with full isoforms (including putative refseq isoforms): overlaps_hg38_withput_${prefix}_MUMERGE_${date}.bed
+    * Overlaps with the truncated refseq isoforms (which are used for counting): overlaps_hg38_trunc_${prefix}_MUMERGE_${date}.bed
+    * Bedtools closest output for bidirectionals and genes: closest_hg38_withput_${prefix}_MUMERGE_${date}.bed
+* counts/
+    * Stranded counts for the putative genes: ${prefix}_str_put_genes.txt
+    * Unstranded and stranded (both strands) counts for bidirectionals: ${prefix}_uns_bidirs.txt, ${prefix}_pos_bidirs.txt, ${prefix}_neg_bidirs.txt 
+* fixed_counts/
+    * fixed counts for the genes: ${prefix}_str_fixed_genes_${date}.txt
+    * fixed counts for the bidirectionals: ${prefix}_MUMERGE_tfit,dreg_${date}_filt.saf 
 
 ## bin
 * 00_get_final_muMerge.sh
@@ -24,5 +46,6 @@ This repo includes the generalizable pipeline for identification, counting, and 
 * 03_get_fix_bids_counts.sh
     * Inputs: SAF file from 02_get_TSS_filt_bids.sh, parameter options for # rowSum counts for gene to be considered disruptting Bid counts and vice versa
     * Outputs: Stranded & unstranded counts for filtered Bids (fixed and unfixed)
-* 04_fix_bids_counts
-* 
+* 04_get_fix_gene_counts.sh
+    * Inputs: Just edit names appropriately
+    * Outputs: Fixed regions for Genes (GTF) and fixed counts for genes
