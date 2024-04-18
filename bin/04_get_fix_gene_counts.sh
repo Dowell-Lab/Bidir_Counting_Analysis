@@ -25,16 +25,16 @@ conda list
 # EDIT THE FOLLOWING
 ##########################
 ## Naming
+# wd is where the bams and counts will be saved
+WD=/scratch/Users/hoto7260/Resp_Env/Sasse2019/out
 prefix="Sasse2019_nascent"
 date=04_04_24
 ## IN/OUT Directories
 SRC= # where the github repo is
-# wd is where the bams and counts will be saved
-WD=/scratch/Users/hoto7260/Resp_Env/Sasse2019/out
-
-TRUNC="/scratch/Shares/dowell/genomes/hg38/ncbi/hg38_refseq_diff53prime_5ptrunc_counting.bed"
-TRUNC_OVERLAPS="/scratch/Users/hoto7260/Resp_Env/Sasse2019/out/overlaps/overlaps_hg38_trunc_Sasse2019nascent_MUMERGE_600bp_04-4-24.bed"
+# Files
+TRUNC_OVERLAPS=${WD}/overlaps/overlaps_hg38_trunc_${PREFIX}_MUMERGE_${DATE}.bed
 USE_BID=${wd}/regions/${prefix}_nontssbid_uniqueid_above25_${date}.bed
+TRUNC=/scratch/Shares/dowell/genomes/hg38/ncbi/hg38_refseq_diff53prime_5ptrunc_counting.bed
 
 
 ###################################
