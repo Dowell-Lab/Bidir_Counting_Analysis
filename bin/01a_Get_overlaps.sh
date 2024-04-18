@@ -16,14 +16,15 @@ module load bedtools
 # EDIT THE FOLLOWING
 ##########################
 ### Naming
-OUT_DIR=/scratch/Users/hoto7260/Resp_Env/Sasse2019/out/overlaps
+WD=
+OUT_DIR=${WD}/overlaps
 PREFIX="Sasse_2019_nascent"
 DATE=04-4-24
 ### Files
 # muMerge Bid file for counting (I have used 600bp window)
-COUNT_WIN=/Users/hoto7260/projects/Resp_Env/Sasse2019/data/beds/Sasse2019nascent_04-4-24_MUMERGE_600bpwin_tfit,dreg.sorted.bed
+COUNT_WIN=/Users/hoto7260/projects/Resp_Env/Sasse2019/data/beds/${PREFIX}_${DATE}_MUMERGE_600bpwin_tfit,dreg.sorted.bed
 # MuMerge Bid file for TSS identification only (I have used 50bp window)
-TSS_WIN=/Users/hoto7260/projects/Resp_Env/Sasse2019/data/beds/Sasse2019nascent_04-4-24_MUMERGE_50bpwin_tfit,dreg.sorted.bed
+TSS_WIN=/Users/hoto7260/projects/Resp_Env/Sasse2019/data/beds/${PREFIX}_${DATE}_MUMERGE_50bpwin_tfit,dreg.sorted.bed
 # The FULL transcripts with putatives (WARNING: if names are too long, bedtools breaks without warning)
 TRANSCRIPTS=/scratch/Shares/dowell/hoto7260/Bidir_Count/hg38_refseq_diff53prime_with_putatives_fixnames.bed
 # The gene file you will use for counting (make sure truncated)
