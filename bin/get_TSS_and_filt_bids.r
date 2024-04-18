@@ -143,5 +143,5 @@ colnames(bids) <- c("Chr", "Start", "End", "GeneID")
 bids$Strand <- "+"
 bids[1:2,]
 write.table(bids[,c("GeneID", "Chr", "Start", "End", "Strand")], 
-            paste0(out_dir, prefix, "MUMERGE_tfit,dreg_", date, "_filt.saf",
+            paste0(out_dir, prefix, "_MUMERGE_tfit,dreg_", date, "_filt.saf",
            quote=FALSE, sep="\t", row.names=FALSE)
