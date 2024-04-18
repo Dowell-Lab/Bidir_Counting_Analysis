@@ -19,7 +19,6 @@ closest_file = paste0(overlaps_dir, "closest_hg38_withput_", prefix, "_MUMERGE_"
 ###################################
 count_dir <- paste0(wd, "/counts")
 fixed_count_dir <- paste0(wd, "/fixed_counts")
-count_req_2=20
 
 # read in counts
 uns_counts <- fread(paste0(count_dir, "/", prefix, "_uns_bidirs.txt"))

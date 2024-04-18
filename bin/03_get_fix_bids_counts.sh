@@ -3,7 +3,7 @@
 #SBATCH --job-name=featureCounts_bids_SE
 #SBATCH --output=/scratch/Users/hoto7260/Resp_Env/Sasse2019/e_and_o/featurecounts_bids_%j.out
 #SBATCH --error=/scratch/Users/hoto7260/Resp_Env/Sasse2019/e_and_o/featurecounts_bids_%j.err
-#SBATCH --time=10:00:00
+#SBATCH --time=5:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=32
 #SBATCH --mem=5G
@@ -29,11 +29,6 @@ bams=${WD}/bams
 counts=${WD}/counts
 fixed_counts=${WD}/fixed_counts 
 
-wd = args[1]
-prefix = args[2]
-date = args[3]
-count_req = args[4] # usually 10 for 4 samples
-count_limit_genes = args[5]
 ## PARAMETERS
 # the number required for a bidirectional to be considered impeding on gene transcription
 # usually do 25 for 4 samples
