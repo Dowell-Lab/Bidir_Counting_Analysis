@@ -1,6 +1,8 @@
 # Bidir_Counting_Analysis
 This repo includes the generalizable pipeline for identification, counting, and length assessments of Bidirectionals from nascent RNA seq data
 
+## Universal variables/outputs:
+* 
 
 ## bin
 * 00_get_final_muMerge.sh
@@ -19,4 +21,8 @@ This repo includes the generalizable pipeline for identification, counting, and 
     * Inputs: Nothing new (just direct to files made from previous scripts)
     * Outputs: SAF file for counting filtered Bids, TSS bids file
     * Important Note: I originally ran this with a jupyter notebook to allow more customizability. This version can be found under notebooks.
-* 03
+* 03_get_fix_bids_counts.sh
+    * Inputs: SAF file from 02_get_TSS_filt_bids.sh, parameter options for # rowSum counts for gene to be considered disruptting Bid counts and vice versa
+    * Outputs: Stranded & unstranded counts for filtered Bids (fixed and unfixed)
+* 04_fix_bids_counts
+* 
