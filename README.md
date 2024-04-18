@@ -15,4 +15,8 @@ This repo includes the generalizable pipeline for identification, counting, and 
 * 01b_Get_prel_gene_counts.sh
     * Inputs: Crams
     * Outputs: stranded counts of all gene isoforms
-* 
+* 02_get_TSS_filt_bids.sh
+    * Inputs: Nothing new (just direct to files made from previous scripts)
+    * Outputs: SAF file for counting filtered Bids, TSS bids file
+    * Important Note: I originally ran this with a jupyter notebook to allow more customizability. This version can be found under notebooks.
+* 03
