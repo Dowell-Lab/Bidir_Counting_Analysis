@@ -29,6 +29,10 @@ This repo includes the generalizable pipeline for identification, counting, and 
 ## Pipeline Steps
 * This pipeline starts with Tfit and dREG bed files that have been mumerged separately.
     * For Tfit, I recommend using the 3’ bedgraph (or equivalent) as Tfit is less likely to capture noise as being a bidirectional. Notes on how to determine the best bedgraph will eventually be added below. I also recommend that you ensure Tfit uses preliminary regions that include the TSS of genes AND the 800k regions called as having potential bidirectionals across multiple datasets. Details can be found below BUT this is automatically included in the Bidirectional Flow github repo on branch [Tfit_focus](https://github.com/Dowell-Lab/Bidirectional-Flow/tree/Tfit_focus). *NOTE*: The 3' methodology currently only works for single end (full warning in the README)
+* To run the full pipeline with one script, you can use the combined_flow.sh
+    * WARNINGS: 
+        * I ran /bin/00_get_final_muMerge.sh separately when creating this file so feel free to run that separately or add the code
+        * It is currently designed to work with bam files. You can refer to 01b_Get_prel_gene_counts.sh to add the code to convert the crams to bams. I can add this later.
 * 00_get_final_muMerge.sh
     * Inputs: mumerged separate Tfit and DReg bed files
     * Outputs: single file where Tfit (only those <2.5kb) and dREG regions are merged (if Tfit region overlaps dREG region, only keeps Tfit) and 4th column is the name in the format chr:start-stop-[tfit|dreg|tfit,dreg]
