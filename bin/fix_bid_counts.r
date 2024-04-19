@@ -6,12 +6,14 @@ prefix = args[2]
 date = args[3]
 count_req = args[4] # usually 10 for 4 samples
 count_limit_genes = args[5]
+cat("\nARGUMENTS:", args, "\n")
 
 region_dir = paste0(wd, "/regions/")
 fixed_count_dir = paste0(wd, "/fixed_counts/")
 overlaps_dir = paste0(wd, "/overlaps/")
 count_out_file = paste0(overlaps_dir, "overlaps_hg38_withput_", prefix, "_MUMERGE_", date, ".bed")
 closest_file = paste0(overlaps_dir, "closest_hg38_withput_", prefix, "_MUMERGE_", date, ".bed")
+tss_file = paste0(region_dir, "tss_bid_", prefix, "_", date, ".txt")
 
 
 ###################################
@@ -31,7 +33,10 @@ neg_counts <- fread(paste0(count_dir, "/", prefix, "_neg_bidirs.txt"))
 # get the genes with >40 counts
 counts <- fread(paste0(count_dir, "/", prefix, "_str_put_genes.txt"))
 count_matrix = data.frame(counts[,7:ncol(counts)])
-high_counts = rownames(count_matrix[rowSums(count_matrix) > count_limit_genes,])
+rownames(count_matrix) <- counts$Geneid
+count_matrix[1:2,]
+high_counts = count_matrix[rowSums(count_matrix) > count_limit_genes,]
+high_counts = rownames(high_counts)
 
 # Get the TSS bids
 tss <- fread(tss_file)
@@ -67,6 +72,7 @@ closest_bid_neg <- unique(closest[closest$V6 == "-",]$V10)
 bid_pos_conflict <- union(closest_bid_pos, over_bid_pos)
 bid_neg_conflict <- union(closest_bid_neg, over_bid_neg)
 remove_bids <- intersect(bid_pos_conflict, bid_neg_conflict)
+cat("\nBids to Remove", remove_bids[1:2])
 
 # remove the bids that can't easily be deconvoluted
 uns_counts <- uns_counts[!uns_counts$Geneid %in% remove_bids]
@@ -77,15 +83,19 @@ neg_counts <- neg_counts[!neg_counts$Geneid %in% remove_bids]
 ## Get the Fixed Counts ##
 ##########################
 # use a substring only found in the samples (not the other headings)
-look_str <- "SRR"
+look_str <- "bam"
 
 # get the pos counts of nontss bidirectionals w/ gene on neg strand
 pos_counts <- data.frame(pos_counts[pos_counts$Geneid %in% bid_neg_conflict,])
+pos_counts[1:2,]
 colnames(pos_counts) <- colnames(uns_counts)
 # multiply by 2
+print(colnames(pos_counts)[grep(look_str, colnames(pos_counts))])
 sample = pos_counts[,colnames(pos_counts)[grep(look_str, colnames(pos_counts))]]
 sample = sample*2
+sample[1:2,]
 pos_counts <- cbind(pos_counts[,c("Geneid", "Chr", "Start", "End", "Strand", "Length")], sample)
+pos_counts[1:2,]
 
 # get the neg counts of bidirectionals w/ gene on pos strand
 neg_counts <- data.frame(neg_counts[neg_counts$Geneid %in% bid_pos_conflict,])
@@ -99,6 +109,9 @@ neg_counts <- cbind(neg_counts[,c("Geneid", "Chr", "Start", "End", "Strand", "Le
 # First have the unstranded counts not include the conflicting ones
 uns_counts2 <- uns_counts[!uns_counts$Geneid %in% bid_neg_conflict,]
 uns_counts2 <- uns_counts2[!uns_counts2$Geneid %in% bid_pos_conflict,]
+uns_counts2[1:2,]
+
+cat("\nSHAPES OF DATAFRAMES", dim(uns_counts2), dim(pos_counts), dim(neg_counts), "\n")
 
 # Combine and save
 full_counts <- rbind(uns_counts2, pos_counts, neg_counts)

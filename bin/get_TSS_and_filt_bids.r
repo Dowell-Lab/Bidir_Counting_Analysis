@@ -2,19 +2,21 @@ library(data.table)
 library(stringr)
 
 args <- commandArgs(trailingOnly = TRUE)
+cat("\nArguments: ", args, "\n")
 wd = args[1]
 prefix = args[2]
 date = args[3]
 og_bid_file = args[4]
 count_limit = args[5]
 
-out_dir = paste0(wd, "regions/")
-overlaps_dir = paste0(wd, "overlaps/")
+out_dir = paste0(wd, "/regions/")
+overlaps_dir = paste0(wd, "/overlaps/")
 tss_out_file = paste0(overlaps_dir, "overlaps_hg38_TSS1kb_withput_", prefix, "_MUMERGE_", date, ".bed")
 count_out_file = paste0(overlaps_dir, "overlaps_hg38_withput_", prefix, "_MUMERGE_", date, ".bed")
 closest_file = paste0(overlaps_dir, "closest_hg38_withput_", prefix, "_MUMERGE_", date, ".bed")
+count_file = paste0(wd, "/counts/", prefix, "_str_put_genes.txt")
 
-###################################
+###################################s
 ## 1. Get the TSS Bidirectionals ##
 ###################################
 # read in the TSS region overlaps
@@ -40,11 +42,13 @@ for (isoform in trans_with_tss) {
     # get the TSS with the minimum MUDIFF
     tss = filt[filt$MUDIFF == min(filt$MUDIFF),]$V4
     #cat("\n", isoform, tss)
-    # if more than one bidirectional has the same min distance --> hand annotate
+    # if more than one bidirectional has the same min distance --> hand annotate (for now just keep first)
     if (length(tss) != 1) {
         hand_annotate <- c(hand_annotate, isoform)
         cat("\nThe isoform", isoform, "has", length(tss), "TSS that are closest. Hand annotate")
-    } else if (tss %in% TSS_used) {
+        tss = tss[1]
+    } 
+    if (tss %in% TSS_used) {
         # if the TSS has already been assigned to a gene
         # check the difference in MUDIFF between the two genes
         filt2 = over[over$V4 == tss,]
@@ -98,8 +102,8 @@ low_counts = rownames(count_matrix[rowSums(count_matrix) < count_limit,])
 count_over <- count_over[!count_over$V4 %in% low_counts]
 
 # Split the overlaps into positive and negative strands
-count_over_neg = count_over_filt[count_over_filt$V6 == "-", ]
-count_over_pos = count_over_filt[count_over_filt$V6 == "+", ]
+count_over_neg = count_over[count_over$V6 == "-", ]
+count_over_pos = count_over[count_over$V6 == "+", ]
 
 pos_bids <- unique(count_over_pos$V10)
 neg_bids <- unique(count_over_neg$V10)
@@ -136,12 +140,12 @@ cat("\nNumber of NonTSS bids within 5kb of 3' of transcribed genes on both stran
 bids <- fread(og_bid_file)
 pos_neg_remove <- union(pos_neg_colliding, pos_neg_filt)
 cat("\nTotal Number of NonTSS bids removing due to convolution", length(pos_neg_remove))
-bids <- bids[!bids$V4 %in% pos_neg_rem]
+bids <- bids[!bids$V4 %in% pos_neg_remove]
 cat("\nTotal Number of Bids remaining", nrow(bids))
 # save as a saf file
 colnames(bids) <- c("Chr", "Start", "End", "GeneID")
 bids$Strand <- "+"
 bids[1:2,]
 write.table(bids[,c("GeneID", "Chr", "Start", "End", "Strand")], 
-            paste0(out_dir, prefix, "_MUMERGE_tfit,dreg_", date, "_filt.saf",
+            paste0(out_dir, prefix, "_MUMERGE_tfit,dreg_", date, "_filt.saf"),
            quote=FALSE, sep="\t", row.names=FALSE)

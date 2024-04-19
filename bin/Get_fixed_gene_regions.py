@@ -3,13 +3,10 @@
 
 import numpy as np
 import pandas as pd
-import argparse
 import sys
-from os import path
-sys.path.append("../src")
+import argparse
 import func_get_fixed_gene_regions as fix
-import func_get_fixed_gene_regions as fix
-import matplotlib.pylab as plt
+#import matplotlib.pylab as plt
 import time
 
 def main():
@@ -99,9 +96,6 @@ def main():
             full_genes.columns = ["chr", "start", "stop", "TranscriptID", "score", "strand", "GeneID", "Length"]
         elif full_genes.shape[1] == 6:
             full_genes.columns = ["chr", "start", "stop", "TranscriptID", "score", "strand"]
-        print(full_genes.shape)
-        print("Full genes")
-        print(full_genes.iloc[1:2,])
         # get transcripts that don't have overlaps
         non_overlapping = set(full_genes.TranscriptID).difference(set(overlaps.TranscriptID))
         print("Number of Genes with no overlaps=", len(non_overlapping))
@@ -117,7 +111,6 @@ def main():
                         "attribute": ['gene_id '+transcript_name.split(":")[0], 'gene_id '+transcript_name.split(":")[0]+'; transcript_id '+transcript_name+'; region_id 1']}
             # add these data to the new regions gtf
             new_regions_df = pd.concat([new_regions_df,pd.DataFrame(data)])
-            print(new_regions_df)
     
         print("Shape of new regions file:", new_regions_df.shape)
         print("Saving New Regions")
