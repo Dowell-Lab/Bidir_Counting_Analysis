@@ -64,7 +64,7 @@ def get_non_overlap_regions_gtf(transcript_name, chrom, strand,
                 "start": [gene_start, gene_start], 
                 "end": [gene_stop, gene_stop],
                 "score":[".","."], "strand":[strand, strand], "frame":[".","."], 
-                "attribute": ['gene_id '+str(transcript_name.split(":")[0]), 'gene_id '+str(transcript_name.split(":")[0])+'; transcript_id '+str(transcript_name) + '; region_id 1']}
+                "attribute": ['gene_id '+str(transcript_name), 'gene_id '+str(transcript_name)+'; transcript_id '+str(transcript_name) + '; region_id 1']}
         return pd.DataFrame(data)
     i=0
     j=0
@@ -91,7 +91,7 @@ def get_non_overlap_regions_gtf(transcript_name, chrom, strand,
                 "start": [gene_start, sorted_ends[-1]], 
                 "end": [gene_stop, region_end],
                 "score":[".","."], "strand":[strand, strand], "frame":[".","."], 
-                "attribute": ['gene_id '+str(transcript_name.split(":")[0]), 'gene_id '+str(transcript_name.split(":")[0])+'; transcript_id '+str(transcript_name) + '; region_id 1']}
+                "attribute": ['gene_id '+str(transcript_name), 'gene_id '+str(transcript_name)+'; transcript_id '+str(transcript_name) + '; region_id 1']}
             return pd.DataFrame(data)
         
     # if the bidirectional starts within gene body
@@ -106,7 +106,7 @@ def get_non_overlap_regions_gtf(transcript_name, chrom, strand,
                 "start": [gene_start, gene_start], 
                 "end": [gene_stop, sorted_starts[i]],
                 "score":[".","."], "strand":[strand, strand], "frame":[".","."], 
-                "attribute": ['gene_id '+str(transcript_name.split(":")[0]), 'gene_id '+str(transcript_name.split(":")[0])+'; transcript_id '+str(transcript_name) + '; region_id 1']}
+                "attribute": ['gene_id '+str(transcript_name), 'gene_id '+str(transcript_name)+'; transcript_id '+str(transcript_name) + '; region_id 1']}
             return pd.DataFrame(data)
     # if only one bidirectional that starts before gene body
     elif len(sorted_starts)==1:
@@ -116,7 +116,7 @@ def get_non_overlap_regions_gtf(transcript_name, chrom, strand,
                 "start": [gene_start, sorted_ends[-1]], 
                 "end": [gene_stop, region_end],
                 "score":[".","."], "strand":[strand, strand], "frame":[".","."], 
-                "attribute": ['gene_id '+str(transcript_name.split(":")[0]), 'gene_id '+str(transcript_name.split(":")[0])+'; transcript_id '+str(transcript_name) + '; region_id 1']}
+                "attribute": ['gene_id '+str(transcript_name), 'gene_id '+str(transcript_name)+'; transcript_id '+str(transcript_name) + '; region_id 1']}
         return pd.DataFrame(data)
         # == Get remaining regions ==
     # while the sorted starts < region_end
@@ -136,14 +136,14 @@ def get_non_overlap_regions_gtf(transcript_name, chrom, strand,
     # get the # of regions
     num = len(new_start_list)
     def gtf_string(arg):
-        return str('gene_id ' + str(transcript_name.split(":")[0])+'; transcript_id ' + str(transcript_name) + '; region_id ' + str(arg))
+        return str('gene_id ' + str(transcript_name)+'; transcript_id ' + str(transcript_name) + '; region_id ' + str(arg))
     GeneID = list(map(gtf_string, range(1,num+1)))
     data = {"chr":[str(chrom)]*(num+1), "source":["."]*(num+1), 
                 "feature":["gene"]+["exon"]*num,
                 "start": [gene_start]+new_start_list, 
                 "end": [gene_stop]+new_end_list,
                 "score":["."]*(num+1), "strand":[strand]*(num+1), "frame":["."]*(num+1), 
-                "attribute": ['gene_id '+str(transcript_name.split(":")[0])] + GeneID}
+                "attribute": ['gene_id '+str(transcript_name)] + GeneID}
     return pd.DataFrame(data)
 
 # function to get the new regions
@@ -393,10 +393,10 @@ def get_nonoverlap_GTF(overlaps, TSS_bids=None):
                    "BP_remain_100bp":num_bp_remain_post_list, "Fraction_Remain_100bp":per_remain_post_list, 
                    "Bidirectionals_nonTSS":bid_list_notss, "Num_Bids_nonTSS":num_bids_notss}
     stat_df = pd.DataFrame(stat_df)
-    print("Min Fraction remain", max(stat_df.Fraction_Remain))
-    print("Min BP_remain", min(stat_df.BP_remain))
-    print("Min Fraction main post removing regions <100bp", max(stat_df.Fraction_Remain_100bp))
-    print("Min BP_remain post removing regions <100bp", min(stat_df.BP_remain_100bp))
+#     print("Min Fraction remain", max(stat_df.Fraction_Remain))
+#     print("Min BP_remain", min(stat_df.BP_remain))
+#     print("Min Fraction main post removing regions <100bp", max(stat_df.Fraction_Remain_100bp))
+#     print("Min BP_remain post removing regions <100bp", min(stat_df.BP_remain_100bp))
     return [new_regions_df, stat_df]
 
 

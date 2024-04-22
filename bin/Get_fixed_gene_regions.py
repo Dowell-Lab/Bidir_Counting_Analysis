@@ -89,7 +89,7 @@ def main():
     if new_regions_df is not None:
         print("Adding non-overlapping genes to regions")
         ## ADD NONOVERLAPPING GENES
-        # read in the full list of long genes
+        # read in the full list of genes of interest
         full_genes = pd.read_csv(arg.full_gene_bed, 
                           sep="\t", header=None)
         if full_genes.shape[1] == 8:
@@ -108,7 +108,7 @@ def main():
                         "start": list(filtered.start)*2, 
                         "end": list(filtered.stop)*2,
                         "score":[".","."], "strand":list(filtered.strand)*2, "frame":[".","."], 
-                        "attribute": ['gene_id '+transcript_name.split(":")[0], 'gene_id '+transcript_name.split(":")[0]+'; transcript_id '+transcript_name+'; region_id 1']}
+                        "attribute": ['gene_id '+transcript_name, 'gene_id '+transcript_name+'; transcript_id '+transcript_name+'; region_id 1']}
             # add these data to the new regions gtf
             new_regions_df = pd.concat([new_regions_df,pd.DataFrame(data)])
     
