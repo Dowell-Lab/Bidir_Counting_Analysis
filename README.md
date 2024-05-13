@@ -34,7 +34,7 @@ This repo includes the generalizable pipeline for identification, counting, and 
         * I ran /bin/00_get_final_muMerge.sh separately when creating this file so feel free to run that separately or add the code
         * It is currently designed to work with bam files. You can refer to 01b_Get_prel_gene_counts.sh to add the code to convert the crams to bams. I can add this later.
 * 00_get_final_muMerge.sh
-    * Inputs: mumerged separate Tfit and DReg bed files
+    * Inputs: mumerged separate Tfit and DReg bed files, and option if want to keep sample id information from muMerge 
     * Outputs: single file where Tfit (only those <2.5kb) and dREG regions are merged (if Tfit region overlaps dREG region, only keeps Tfit) and 4th column is the name in the format chr:start-stop-[tfit|dreg|tfit,dreg]
     * Analysis process: (uses get_final_muMerge.r)
         * First, remove Tfit regions >2.5kb since extremely low confidence
