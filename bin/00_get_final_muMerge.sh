@@ -9,6 +9,8 @@ source activate (conda environment with R, R data.table, R stringr, and bedtools
 SRC=/path/to/github/directory
 WD=/scratch/Users/path/
 INPUT_DIR=/Users/hopekirby/Desktop/Resp_Genetics/Asthma_Genetics/Sasse2023/beds
+# Whether or not you want to maintain the sample ids in the final files
+S_IDS=TRUE
 # files
 TFIT=${INPUT_DIR}/Sasse2019nascent_hg38_tfit_MUMERGE.bed
 DREG=${INPUT_DIR}/Sasse2019nascent_hg38_dreg_MUMERGE.bed
@@ -33,10 +35,9 @@ head ${OVER_OUT}
 echo "Saved at" ${OVER_OUT}
 
 echo "====== Getting the final muMerge file"
-## arguments: overlaps_filename, tfit_filename, dREG_filename, output_prefix, dREG start col, overlap col 
 # move output to the beds folder
-OUT_PREFIX=${OUTPUT_DIR}/beds/${PREFIX}_${DATE}
-Rscript ${SRC}/bin/get_final_muMerge.r ${OVER_OUT} ${TFIT} ${DREG} ${OUT_PREFIX} ${WINDOW}
+OUT_PREFIX=${WD}/beds/${PREFIX}_${DATE}
+Rscript ${SRC}/bin/get_final_muMerge.r ${OVER_OUT} ${TFIT} ${DREG} ${OUT_PREFIX} ${WINDOW} ${S_IDS}
 echo "\nFinal files saved with prefix" ${OUT_PREFIX}
 ls -lh ${OUT_PREFIX}*
 

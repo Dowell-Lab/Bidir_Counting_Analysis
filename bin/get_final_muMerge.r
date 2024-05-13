@@ -7,6 +7,7 @@ tfit_filename = args[2]
 dreg_filename = args[3]
 output_prefix = args[4]
 window = as.numeric(args[5])
+sample_ids = args[6]
 
 cat("\nUSING", overlaps_filename, tfit_filename, dreg_filename, output_prefix)
 ### Reaad in the overlaps between dREG and Tfit
@@ -22,12 +23,22 @@ dreg <- fread(dreg_filename)
 second_start = ncol(tfit)+2
 second_start_col = paste0("V", as.character(second_start))
 second_stop_col = paste0("V", as.character(second_start+1))
+second_sampid_col = paste0("V", as.character(second_start+2))
 # get the overlap column
 overlap_col = as.character(ncol(tfit) + ncol(dreg) + 1)
 ## name the regions according to position
 over$unique <- paste0(over$V1, ":", over$V2, "-", over$V3)
 over$unique_dreg <- paste0(over$V1, ":", over[[second_start_col]], "-", over[[second_stop_col]])
 over[1:2,]
+
+###############
+## FUNCTIONS ##
+###############
+# to get the unique set of Sample ids corresponding to a bidirectional if overlapping
+get_shrunk <- function(x) {
+    x <- strsplit(x, ",")[[1]]
+    return(unique(x))
+}
 
 ###############
 ## FILTERING ##
@@ -67,6 +78,12 @@ over <- over[over$unique_nums %in% setdiff(keep, over_filt$unique_nums),]
 cat("\nNumber of overlaps needing to add back in due to MUDIFF <101bp", nrow(over))
 over_filt <- rbind(over_filt, over)
 
+## Get the unique set of sample ids
+if (sample_ids) {
+    over_filt$SRRs <- paste0(over_filt$V4, ",", over_filt[[second_sampid_col]])
+    over_filt$V4 <- as.character(lapply(over_filt$SRRs, get_shrunk))
+    }
+
 
 #######################
 ## RECOMBINING FILES ##
@@ -90,9 +107,18 @@ tfit$name <- paste0(tfit$unique, "-tfit")
 dreg$name <- paste0(dreg$unique, "-dreg")
 over_filt$name <- paste0(over_filt$unique, "-tfit,dreg")
 
-final <- rbind(tfit[,c("V1", "V2", "V3", "name")], dreg[,c("V1", "V2", "V3", "name")], over_filt[,c("V1", "V2", "V3", "name")])
+if (sample_ids) {
+    final <- rbind(tfit[,c("V1", "V2", "V3", "name", "V4")], 
+               dreg[,c("V1", "V2", "V3", "name", "V4")], 
+               over_filt[,c("V1", "V2", "V3", "name", "V4")])
+    } else {
+    final <- rbind(tfit[,c("V1", "V2", "V3", "name")], 
+               dreg[,c("V1", "V2", "V3", "name")], 
+               over_filt[,c("V1", "V2", "V3", "name")])
+    }
+
 # remove duplicates
-final <- final[!duplicated(final)]
+final <- final[!duplicated(final[,c("V1", "V2", "V3", "name")])]
 # only keep those in primary chromosomes
 final <- final[final$V1 %in% c("chr1", "chr2", "chr3", "chr4", "chr5", 
                                "chr6", "chr7", "chr8", "chr9", "chr10", 
@@ -116,9 +142,16 @@ if (window==0) {
 } else if (window==1) {
     final$mu <- as.integer((final$V3+final$V2)/2)
     final$new_start <- final$mu - 1
-    write.table(final[,c("V1", "new_start", "mu", "name")], 
+    if (sample_ids) {
+        write.table(final[,c("V1", "new_start", "mu", "name", "V4")], 
            paste0(output_prefix, "_MUMERGE_1bpwin_tfit,dreg.bed"), 
            quote=FALSE, sep="\t", col.names=FALSE, row.names=FALSE)
+        } else {
+        write.table(final[,c("V1", "new_start", "mu", "name")], 
+           paste0(output_prefix, "_MUMERGE_1bpwin_tfit,dreg.bed"), 
+           quote=FALSE, sep="\t", col.names=FALSE, row.names=FALSE)
+        }
+    
 } else {
     window_half = as.integer(window/2)
     final$mu <- as.integer((final$V3+final$V2)/2)
@@ -126,9 +159,16 @@ if (window==0) {
     final$Va <- final$mu - window_half
     # if any are below 1 position, fix to be at 1
     final[final$Va < 1,]$Va <- 1
-    write.table(final[,c("V1", "Va", "Vb", "name")], 
+    if (sample_ids) {
+        write.table(final[,c("V1", "Va", "Vb", "name", "V4")], 
            paste0(output_prefix, "_MUMERGE_", window, "bpwin_tfit,dreg.bed"), 
            quote=FALSE, sep="\t", col.names=FALSE, row.names=FALSE)
+        } else {
+        write.table(final[,c("V1", "Va", "Vb", "name")], 
+           paste0(output_prefix, "_MUMERGE_", window, "bpwin_tfit,dreg.bed"), 
+           quote=FALSE, sep="\t", col.names=FALSE, row.names=FALSE)
+        }
+    
     }
 
 
