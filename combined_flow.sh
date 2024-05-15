@@ -77,6 +77,13 @@ CLOSE_OUT=${OUT_DIR}/closest_hg38_withput_${PREFIX}_MUMERGE_${DATE}.bed
 
 # ##########################
 # # GETTING THE OVERLAPS
+# first make sure I'm only using the first four columns
+INT_COUNT_WIN=${WD}/int_count_win.bed
+cut -f1-4 ${COUNT_WIN} > ${INT_COUNT_WIN}
+COUNT_WIN=${INT_COUNT_WIN}
+INT_TSS_WIN=${WD}/int_tss_win.bed
+cut -f1-4 ${TSS_WIN} > ${INT_TSS_WIN}
+TSS_WIN=${INT_TSS_WIN}
 
 # Identifying TSS Bids
 bedtools intersect -wo -a ${TSS_WIN} -b ${TSS_BED} > ${TSS_OUT}
@@ -220,6 +227,13 @@ featureCounts \
     ./*.sorted.bam
 
 wc -l ${fixed_counts}/*
+
+#############################
+# Delete intermediate files #
+#############################
+
+rm ${TSS_WIN}
+rm ${COUNT_WIN}
 
 echo "DONE!"
 date
