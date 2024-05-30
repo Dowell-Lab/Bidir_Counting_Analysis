@@ -20,7 +20,7 @@ module load subread/1.6.2
 ##########################
 # EDIT THE FOLLOWING
 ##########################
-SRC=/Users/hoto7260/src/Bidir_Counting_Analysis/bin
+SRC=/Users/hoto7260/src/Bidir_Counting_Analysis/
 ### Naming
 WD=/scratch/Users/hoto7260/Bench_DE/Elkon2015myc
 OUT_DIR=${WD}/overlaps
@@ -60,11 +60,11 @@ echo "########################            1a. GET THE OVERLAPS         #########
 echo "#####################################################################################"
 
 # The FULL transcripts with putatives (WARNING: if names are too long, bedtools breaks without warning)
-TRANSCRIPTS=/scratch/Shares/dowell/hoto7260/Bidir_Count/hg38_refseq_diff53prime_with_putatives_fixnames.bed
+TRANSCRIPTS=${SRC}/assets/hg38_refseq_diff53prime_with_putatives_fixnames.bed
 # The gene file you will use for counting (make sure truncated)
-TRUNC=/scratch/Shares/dowell/genomes/hg38/ncbi/hg38_refseq_diff53prime_5ptrunc_counting.bed
+TRUNC=${SRC}/assets/hg38_refseq_diff53prime_5ptrunc_counting.bed
 # TSS 1kb region (500bp ± TSS)
-TSS_BED=/scratch/Shares/dowell/hoto7260/Bidir_Count/hg38_TSS1kb_refseq_diff53prime_with_putatives.bed
+TSS_BED=${SRC}/assets/hg38_TSS1kb_refseq_diff53prime_with_putatives.bed
 
 ##########################
 # NAMING THE OUTPUT FILES
@@ -107,7 +107,7 @@ fixed_counts=${WD}/fixed_counts
 mkdir -p ${counts}
 mkdir -p ${fixed_counts}
 
-genes=/scratch/Shares/dowell/hoto7260/Bidir_Count/hg38_refseq_diff53prime_with_putatives_5ptrunc.saf
+genes=${SRC}/assets/hg38_refseq_diff53prime_with_putatives_5ptrunc.saf
 
 ########################################## 
 # Count reads over gene coordinates     ##
@@ -132,7 +132,7 @@ echo "##########################################################################
 echo "########################          2. GET TSS & Filt Bids       ####################"
 echo "###################################################################################"
 
-Rscript ${SRC}/get_TSS_and_filt_bids.r ${WD} ${PREFIX} ${DATE} ${COUNT_WIN} ${COUNT_LIMIT_GENES}
+Rscript ${SRC}/bin/get_TSS_and_filt_bids.r ${WD} ${PREFIX} ${DATE} ${COUNT_WIN} ${COUNT_LIMIT_GENES}
 wc -l ${WD}/regions/*
 
 echo ""
@@ -185,7 +185,7 @@ featureCounts \
 #########################
 ## Now Fix the Counts ##
 #########################
-Rscript ${SRC}/fix_bid_counts.r ${WD} ${PREFIX} ${DATE} ${COUNT_LIMIT_BIDS} ${COUNT_LIMIT_GENES}
+Rscript ${SRC}/bin/fix_bid_counts.r ${WD} ${PREFIX} ${DATE} ${COUNT_LIMIT_BIDS} ${COUNT_LIMIT_GENES}
 wc -l ${fixed_counts}/*
 
 echo ""
@@ -202,7 +202,7 @@ COUNT_STATS=${WD}/regions/${PREFIX}_stats_len_posneg_gene_filt_divconv_diff53pri
 
 echo "Getting new regions for counts using BID" ${USE_BID}
 # get new regions and stats
-python ${SRC}/Get_fixed_gene_regions.py --overlap_file ${COUNT_TRUNC_OUT} --new_regions_output_file ${NEW_REG} \
+python ${SRC}/bin/Get_fixed_gene_regions.py --overlap_file ${COUNT_TRUNC_OUT} --new_regions_output_file ${NEW_REG} \
 --stats_output_file ${COUNT_STATS} --full_gene_bed ${TRUNC} --use_bids_bedfile ${USE_BID}
 
 wc -l ${NEW_REG}
@@ -216,6 +216,7 @@ echo "Submitted counts with Rsubread for nonoverlapping gene regions by strand..
 #Use this many threads
 #Count multi-overlapping read
 #Count reads in a strand specific manner
+cd ${bams}
 featureCounts \
     -T 32 \
     -O \
@@ -224,7 +225,7 @@ featureCounts \
     -a ${NEW_REG} \
     -F 'GTF' \
     -o ${fixed_counts}/${prefix}_str_fixed_genes_${date}.txt \
-    ./*.sorted.bam
+   ./*.sorted.bam
 
 wc -l ${fixed_counts}/*
 
