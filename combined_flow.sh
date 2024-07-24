@@ -11,15 +11,22 @@
 #SBATCH --mail-type=END,FAIL
 #SBATCH --mail-user=hoto7260@colorado.edu
 
-source activate /Users/hoto7260/miniconda3/envs/Rjupyter (must have R with data.table & stringR AND python 3.9 with pandas and numpy)
 
-module load bedtools
-module load samtools/1.8
-module load subread/1.6.2
 
 ##########################
 # EDIT THE FOLLOWING
 ##########################
+
+#### Loading Modules/Environments
+# if you have a conda or other virual environment, activate here
+source activate /Users/hoto7260/miniconda3/envs/Rjupyter (in my case, this environment has  R with data.table & stringR AND python 3.9 with pandas and numpy)
+
+module load bedtools
+module load samtools/1.8
+module load subread/1.6.2
+module load R/4.4.0
+
+###
 SRC=/Users/hoto7260/src/Bidir_Counting_Analysis/
 ### Naming
 WD=/scratch/Users/hoto7260/Bench_DE/Elkon2015myc
@@ -31,11 +38,14 @@ DATE=04_4_24
 bams=/scratch/Users/hoto7260/Bench_DE/raw_data/bams/Elkon2015myc/PRO/counting/
 
 ### Files
-# muMerge Bid file for counting (I have used 600bp window)
-COUNT_WIN=${WD}/regions/${PREFIX}_${DATE}_MUMERGE_600bpwin_tfit,dreg.sorted.bed
-# MuMerge Bid file for TSS identification only (I have used 50bp window)
-TSS_WIN=${WD}/regions/${PREFIX}_${DATE}_MUMERGE_50bpwin_tfit,dreg.sorted.bed
+File with consensus regions (e.g. output from Mumerge)
+CONS_FILE=
 
+### Parameters
+# window for counting (mu-window & mu + window)
+COUNT_WIN=500
+# window for TSS overlaps (mu-window & mu + window)
+TSS_WIN=25
 # minimum rowSUM counts needed for a gene to be considered "transcribed" and significantly altering bid counts (I used 40 for 4 samples)
 COUNT_LIMIT_GENES=60
 # the number required for a bidirectional to be considered impeding on gene transcription
@@ -48,8 +58,9 @@ echo "##########################################################################
 echo "Output Directory" ${WD}
 echo "Prefix" ${PREFIX}
 echo "Date" ${DATE}
-echo "Bid file for counting" ${COUNT_WIN}
-echo "Bid file for identifying TSS" ${TSS_WIN}
+echo "Consensus file for bids" ${COUNT_WIN}
+echo "Window used for counting (*2 for total region width)" ${COUNT_WIN}
+echo "Window used for TSS overlaps (*2 for total region width)" ${TSS_WIN}
 echo "min rowSum counts for gene to be a convolution problem" ${COUNT_LIMIT_GENES}
 echo "min rowSum counts for a bid to be a convolution problem" ${COUNT_LIMIT_BIDS}
 echo ""
@@ -66,6 +77,12 @@ TRUNC=${SRC}/assets/hg38_refseq_diff53prime_5ptrunc_counting.bed
 # TSS 1kb region (500bp ± TSS)
 TSS_BED=${SRC}/assets/hg38_TSS1kb_refseq_diff53prime_with_putatives.bed
 
+##########################
+# GET THE INPUT BED FILES
+# mumerge_filename, count_window, tss_window, prefix_date
+Rscript ${SRC}/bin/get_window_cons_files.r ${COUNT_WIN} ${TSS_WIN} ${WD}/regions/${PREFIX}_${DATE}  
+COUNT_WIN_FILE=${WD}/regions/${PREFIX}_${DATE}_MUMERGE_${COUN_WIN}win_count.sorted.bed
+TSS_WIN_FILE=${WD}/regions/${PREFIX}_${DATE}_MUMERGE_${COUN_WIN}win_TSS.sorted.bed
 ##########################
 # NAMING THE OUTPUT FILES
 
@@ -86,16 +103,16 @@ cut -f1-4 ${TSS_WIN} > ${INT_TSS_WIN}
 TSS_WIN=${INT_TSS_WIN}
 
 # Identifying TSS Bids
-bedtools intersect -wo -a ${TSS_WIN} -b ${TSS_BED} > ${TSS_OUT}
+bedtools intersect -wo -a ${TSS_WIN_FILE} -b ${TSS_BED} > ${TSS_OUT}
 wc -l ${TSS_OUT}
 ## Bids that overlap with transcripts (for counting) -- must have gene first
-bedtools intersect -wo -a ${TRANSCRIPTS} -b ${COUNT_WIN} > ${COUNT_OUT}
+bedtools intersect -wo -a ${TRANSCRIPTS} -b ${COUNT_WIN_FILE} > ${COUNT_OUT}
 wc -l ${COUNT_OUT}
 ## Bids that overlap with transcripts (for counting) -- must have gene first
-bedtools intersect -wo -a ${TRUNC} -b ${COUNT_WIN} > ${COUNT_TRUNC_OUT}
+bedtools intersect -wo -a ${TRUNC} -b ${COUNT_WIN_FILE} > ${COUNT_TRUNC_OUT}
 wc -l ${COUNT_TRUNC_OUT}
 ## Bids within 10kb of the transcripts (do 1000 to ensure all are included)
-bedtools closest -D ref -k 100 -a ${TRANSCRIPTS} -b ${COUNT_WIN} > ${CLOSE_OUT}
+bedtools closest -D ref -k 100 -a ${TRANSCRIPTS} -b ${COUNT_WIN_FILE} > ${CLOSE_OUT}
 wc -l ${CLOSE_OUT}
 
 echo ""
@@ -132,7 +149,7 @@ echo "##########################################################################
 echo "########################          2. GET TSS & Filt Bids       ####################"
 echo "###################################################################################"
 
-Rscript ${SRC}/bin/get_TSS_and_filt_bids.r ${WD} ${PREFIX} ${DATE} ${COUNT_WIN} ${COUNT_LIMIT_GENES}
+Rscript ${SRC}/bin/get_TSS_and_filt_bids.r ${WD} ${PREFIX} ${DATE} ${COUNT_WIN_FILE} ${COUNT_LIMIT_GENES}
 wc -l ${WD}/regions/*
 
 echo ""
@@ -229,12 +246,6 @@ featureCounts \
 
 wc -l ${fixed_counts}/*
 
-#############################
-# Delete intermediate files #
-#############################
-
-rm ${TSS_WIN}
-rm ${COUNT_WIN}
 
 echo "DONE!"
 date
