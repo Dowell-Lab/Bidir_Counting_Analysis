@@ -11,8 +11,6 @@
 #SBATCH --mail-type=END,FAIL
 #SBATCH --mail-user=hoto7260@colorado.edu
 
-
-
 ##########################
 # EDIT THE FOLLOWING
 ##########################
@@ -26,11 +24,10 @@ module load samtools/1.8
 module load subread/1.6.2
 module load R/4.4.0
 
-###
+### Paths
 SRC=/Users/hoto7260/src/Bidir_Counting_Analysis/
-### Naming
 WD=/scratch/Users/hoto7260/Bench_DE/Elkon2015myc
-OUT_DIR=${WD}/overlaps
+### Naming
 PREFIX="Elkon2015myc"
 DATE=04_4_24
 
@@ -51,6 +48,8 @@ COUNT_LIMIT_GENES=60
 # the number required for a bidirectional to be considered impeding on gene transcription
 # usually do 25 for 4 samples
 COUNT_LIMIT_BIDS=30
+# do you want to get TFEA combined file outputs? YES or NO
+TFEA="YES"
 
 echo "##########################################################################"
 echo "########################            VARIABLES         ####################"
@@ -80,12 +79,12 @@ TSS_BED=${SRC}/assets/hg38_TSS1kb_refseq_diff53prime_with_putatives.bed
 ##########################
 # GET THE INPUT BED FILES
 # mumerge_filename, count_window, tss_window, prefix_date
-Rscript ${SRC}/bin/get_window_cons_files.r ${COUNT_WIN} ${TSS_WIN} ${WD}/regions/${PREFIX}_${DATE}  
-COUNT_WIN_FILE=${WD}/regions/${PREFIX}_${DATE}_MUMERGE_${COUN_WIN}win_count.sorted.bed
-TSS_WIN_FILE=${WD}/regions/${PREFIX}_${DATE}_MUMERGE_${COUN_WIN}win_TSS.sorted.bed
+Rscript ${SRC}/bin/get_window_cons_files.r ${CONS_FILE} ${COUNT_WIN} ${TSS_WIN} ${WD}/regions/${PREFIX}_${DATE}    
+COUNT_WIN_FILE=${WD}/regions/${PREFIX}_${DATE}_MUMERGE_${COUNT_WIN}win_count.sorted.bed
+TSS_WIN_FILE=${WD}/regions/${PREFIX}_${DATE}_MUMERGE_${COUNT_WIN}win_TSS.sorted.bed
 ##########################
 # NAMING THE OUTPUT FILES
-
+OUT_DIR=${WD}/overlaps
 mkdir -p ${OUT_DIR}
 TSS_OUT=${OUT_DIR}/overlaps_hg38_TSS1kb_withput_${PREFIX}_MUMERGE_${DATE}.bed
 COUNT_OUT=${OUT_DIR}/overlaps_hg38_withput_${PREFIX}_MUMERGE_${DATE}.bed
@@ -96,11 +95,11 @@ CLOSE_OUT=${OUT_DIR}/closest_hg38_withput_${PREFIX}_MUMERGE_${DATE}.bed
 # # GETTING THE OVERLAPS
 # first make sure I'm only using the first four columns
 INT_COUNT_WIN=${WD}/int_count_win.bed
-cut -f1-4 ${COUNT_WIN} > ${INT_COUNT_WIN}
-COUNT_WIN=${INT_COUNT_WIN}
+cut -f1-4 ${COUNT_WIN_FILE} > ${INT_COUNT_WIN}
+COUNT_WIN_FILE=${INT_COUNT_WIN}
 INT_TSS_WIN=${WD}/int_tss_win.bed
-cut -f1-4 ${TSS_WIN} > ${INT_TSS_WIN}
-TSS_WIN=${INT_TSS_WIN}
+cut -f1-4 ${TSS_WIN_FILE} > ${INT_TSS_WIN}
+TSS_WIN_FILE=${INT_TSS_WIN}
 
 # Identifying TSS Bids
 bedtools intersect -wo -a ${TSS_WIN_FILE} -b ${TSS_BED} > ${TSS_OUT}
@@ -148,8 +147,8 @@ echo ""
 echo "###################################################################################"
 echo "########################          2. GET TSS & Filt Bids       ####################"
 echo "###################################################################################"
-
-Rscript ${SRC}/bin/get_TSS_and_filt_bids.r ${WD} ${PREFIX} ${DATE} ${COUNT_WIN_FILE} ${COUNT_LIMIT_GENES}
+# YES refers to TFEA output being made
+Rscript ${SRC}/bin/get_TSS_and_filt_bids.r ${WD} ${PREFIX} ${DATE} ${COUNT_WIN_FILE} ${COUNT_LIMIT_GENES} ${TFEA}
 wc -l ${WD}/regions/*
 
 echo ""
@@ -189,7 +188,6 @@ featureCounts \
 echo "Submitted counts with Rsubread for bidirectionals stranded (-)......"
 # Use this many threads
 # Count multi-overlapping read
-# Count reads NOT in a strand specific manner
 featureCounts \
    -T 32 \
    -O \
@@ -246,6 +244,11 @@ featureCounts \
 
 wc -l ${fixed_counts}/*
 
+###################
+# REMOVE INTERMEDIATE FILES #
+###################
+rm ${TSS_WIN_FILE}
+rm ${COUNT_WIN_FILE}
 
 echo "DONE!"
 date
