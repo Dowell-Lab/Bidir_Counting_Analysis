@@ -8,6 +8,7 @@ prefix = args[2]
 date = args[3]
 og_bid_file = args[4]
 count_limit = args[5]
+TFEA = args[6]
 
 out_dir = paste0(wd, "/regions/")
 overlaps_dir = paste0(wd, "/overlaps/")
@@ -149,3 +150,20 @@ bids[1:2,]
 write.table(bids[,c("GeneID", "Chr", "Start", "End", "Strand")], 
             paste0(out_dir, prefix, "_MUMERGE_tfit,dreg_", date, "_filt.saf"),
            quote=FALSE, sep="\t", row.names=FALSE)
+
+##############################################
+## 5. If TFEA output requested, print out ##
+##############################################
+if (TFEA == "YES") {
+    # split up the tss and notss bids
+    tss <- bids[bids$GeneID %in% over_filt$BidID,]
+    nontss <- bids[!bids$GeneID %in% over_filt$BidID,]
+    cat("\nNumber total Bids after filtering:", nrow(bids), "\n\tNumber TSS:", nrow(tss), "\tNumber NonTSS:", nrow(nontss))
+    # save
+    write.table(tss[,c("Chr", "Start", "End", "GeneID")], 
+            paste0(out_dir, "tss_bid_", prefix, "_", date, "_forTFEA.bed"),
+           quote=FALSE, sep="\t", row.names=FALSE, col.names=FALSE)
+    write.table(nontss[,c("Chr", "Start", "End", "GeneID")], 
+            paste0(out_dir, "nontss_bid_", prefix, "_", date, "_forTFEA.bed"),
+           quote=FALSE, sep="\t", row.names=FALSE, col.names=FALSE)
+    }
