@@ -50,6 +50,8 @@ COUNT_LIMIT_GENES=60
 COUNT_LIMIT_BIDS=30
 # do you want to get TFEA combined file outputs? YES or NO
 TFEA="YES"
+# do you want to have unique names be created for each bidirectional? YES or NO
+MAKE_NAMES="YES"
 
 echo "##########################################################################"
 echo "########################            VARIABLES         ####################"
@@ -79,7 +81,7 @@ TSS_BED=${SRC}/assets/hg38_TSS1kb_refseq_diff53prime_with_putatives.bed
 ##########################
 # GET THE INPUT BED FILES
 # mumerge_filename, count_window, tss_window, prefix_date
-Rscript ${SRC}/bin/get_window_cons_files.r ${CONS_FILE} ${COUNT_WIN} ${TSS_WIN} ${WD}/regions/${PREFIX}_${DATE}    
+Rscript ${SRC}/bin/get_window_cons_files.r ${CONS_FILE} ${COUNT_WIN} ${TSS_WIN} ${WD}/regions/${PREFIX}_${DATE} ${MAKE_NAMES}    
 COUNT_WIN_FILE=${WD}/regions/${PREFIX}_${DATE}_MUMERGE_${COUNT_WIN}win_count.sorted.bed
 TSS_WIN_FILE=${WD}/regions/${PREFIX}_${DATE}_MUMERGE_${COUNT_WIN}win_TSS.sorted.bed
 ##########################

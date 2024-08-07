@@ -6,6 +6,7 @@ mumerge_filename = args[1]
 count_win = as.numeric(args[2])
 tss_win = as.numeric(args[3])
 output_prefix = args[4]
+make_names = args[5]
 
 cat("\nUSING File", mumerge_filename,"\nCount & TSS windows", count_win, tss_win, "\nOutput Prefix", output_prefix)
 ### Read in the consensus region
@@ -15,10 +16,15 @@ dim(cons)
 #over[1:2,]
 
 # Get the names for each bidir
-if (nrow(cons) > 3) {
-    cons$unique_name = cons$V4
-    } else {
+if (make_names != "NO") {
     cons$unique_name = paste0(cons$V1, ":", cons$V2, "-", cons$V3) 
+    } else {
+        if (nrow(cons) > 3) {
+            cons$unique_name = cons$V4
+        } else {
+            print("WARNING: you don't currently have names available in the Consensus file so we are making some for you.")
+            cons$unique_name = paste0(cons$V1, ":", cons$V2, "-", cons$V3) 
+        }
     }
 
 
