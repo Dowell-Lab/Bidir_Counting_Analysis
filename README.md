@@ -44,7 +44,7 @@ R
 
 ### Input Files Required
 * Consensus bidirectionals (CONS_BID)
-    * This should be the consensus regions of the bidirectionals in bed format (example is muMerge output). If names are provided in the 4th column, they'll be used. Otherwise, a unique name will be assigned.
+    * This should be the consensus regions of the bidirectionals in bed format (example is muMerge output). 
 
 ### Variables/Parameters to choose:
 * SRC = path to this repository (e.g. ~/Bidir_Counting_Analysis/)
@@ -59,6 +59,7 @@ R
 * Prefix = string prefix to refer to project (e.g. Sasse2019_nascent)
 * Date = string to refer to the date this pipeline is run
 * TFEA = string (YES or NO) of whether or not you want TSS & NonTSS bed files to be used as input into TFEA
+* MAKE_NAMES = string (YES or NO) of whether or not you want the code to add unique names for the bidirectionals in CONS_BID. If NO, it will assume the fourth column is the unique names. Unique names are in the format chrom:start-stop.
 
 ### Just get the TSS/NonTSS bidirectionals to run TFEA
 * get_TSS_nonTSSbids_forTFEA.sh will only run the first few steps of combined_flow.sh to get the TSS & NonTSS bidirectionals as input for TFEA or for counting. It will NOT do fixed counting for the regions but WILL provide counts (so no fixed_counts output). 
