@@ -5,7 +5,7 @@ wd = args[1]
 prefix = args[2]
 date = args[3]
 count_req = args[4] # usually 10 for 4 samples
-count_limit_genes = args[5]
+count_limit_genes = as.integer(args[5])
 cat("\nARGUMENTS:", args, "\n")
 
 region_dir = paste0(wd, "/regions/")
