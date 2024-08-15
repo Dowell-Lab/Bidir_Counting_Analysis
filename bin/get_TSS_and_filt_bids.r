@@ -7,7 +7,7 @@ wd = args[1]
 prefix = args[2]
 date = args[3]
 og_bid_file = args[4]
-count_limit = args[5]
+count_limit = as.integer(args[5])
 TFEA = args[6]
 
 out_dir = paste0(wd, "/regions/")
