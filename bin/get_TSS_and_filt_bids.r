@@ -318,14 +318,14 @@ if (type == "MU_COUNTS" | type == "BOTH") {
     gtf_lines = get_GTF_lines(closest)
     writeLines(gtf_lines, paste0(out_dir, prefix, "_", date, "_mucounts_", str(count_win), ".gtf"))
     # now get the positive and negative forms
-    gtf <- fread(paste0(out_dir, prefix, "_", date, "_mucounts_", str(count_win), ".gtf"))
+    gtf <- fread(paste0(out_dir, prefix, "_mucounts_", str(count_win), "_", date ".gtf"))
     pos_gtf = gtf[gtf$V7 %in% c(".", "+"),]
     neg_gtf = gtf[gtf$V7 %in% c(".", "-"),]
     if (nrow(gtf)/3*2 != nrow(pos_gtf)) {
         stop("There was a problem in getting the GTF. One of the regions does not have transcripts on both strands.") }
-    write.table(pos_gtf, paste0(out_dir, prefix, "_", date, "_mucounts_", str(count_win), "_pos.gtf"), 
+    write.table(pos_gtf, paste0(out_dir, prefix, "_mucounts_", str(count_win), "_", date "_pos.gtf"), 
             quote=FALSE, sep="\t", row.names=FALSE, col.names=FALSE)
-    write.table(neg_gtf, paste0(out_dir, prefix, "_", date, "_mucounts_", str(count_win), "_neg.gtf"), 
+    write.table(neg_gtf, paste0(out_dir, prefix, "_mucounts_", str(count_win), "_", date "_neg.gtf"), 
             quote=FALSE, sep="\t", row.names=FALSE, col.names=FALSE)
     end.time <- Sys.time()
     cat("\nTime to get mu based counts:")
