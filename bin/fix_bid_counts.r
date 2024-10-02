@@ -6,7 +6,9 @@ prefix = args[2]
 date = args[3]
 count_req = args[4] # usually 10 for 4 samples
 count_limit_genes = as.integer(args[5])
+count_type = args[6] # whetehr or not SIMPLE or MU_COUNTS
 cat("\nARGUMENTS:", args, "\n")
+
 
 region_dir = paste0(wd, "/regions/")
 fixed_count_dir = paste0(wd, "/fixed_counts/")
@@ -14,18 +16,34 @@ overlaps_dir = paste0(wd, "/overlaps/")
 count_out_file = paste0(overlaps_dir, "overlaps_hg38_withput_", prefix, "_MUMERGE_", date, ".bed")
 closest_file = paste0(overlaps_dir, "closest_hg38_withput_", prefix, "_MUMERGE_", date, ".bed")
 tss_file = paste0(region_dir, "tss_bid_", prefix, "_", date, ".txt")
+count_dir <- paste0(wd, "/counts")
+fixed_count_dir <- paste0(wd, "/fixed_counts")
+
+if (count_type == "SIMPLE") {
+    uns_counts_file = paste0(count_dir, "/", prefix, "_uns_bidirs.txt")
+    pos_counts_file = paste0(count_dir, "/", prefix, "_pos_bidirs.txt")
+    neg_counts_file = paste0(count_dir, "/", prefix, "_neg_bidirs.txt")
+    full_counts_file = paste0(fixed_count_dir, "/", prefix, "_fixed_bids_", date, ".txt")
+    } else {
+    ${PREFIX}_mucounts_str_bidirs.txt
+    uns_counts_file = paste0(count_dir, "/", prefix, "_mucounts_str_bidirs.txt")
+    pos_counts_file = paste0(count_dir, "/", prefix, "_mucounts_pos_bidirs.txt")
+    neg_counts_file = paste0(count_dir, "/", prefix, "_mucounts_neg_bidirs.txt")
+    full_counts_file = paste0(fixed_count_dir, "/", prefix, "_mucounts_fixed_bids_", date, ".txt")
+    }
+
+
 
 
 ###################################
 ## 1. Get the fixed counts ##
 ###################################
-count_dir <- paste0(wd, "/counts")
-fixed_count_dir <- paste0(wd, "/fixed_counts")
+
 
 # read in counts
-uns_counts <- fread(paste0(count_dir, "/", prefix, "_uns_bidirs.txt"))
-pos_counts <- fread(paste0(count_dir, "/", prefix, "_pos_bidirs.txt"))
-neg_counts <- fread(paste0(count_dir, "/", prefix, "_neg_bidirs.txt"))
+uns_counts <- fread(uns_counts_file)
+pos_counts <- fread(pos_counts_file)
+neg_counts <- fread(neg_counts_file)
 
 #######################################################################
 ## Get the Bids that need to be fixed due to close/overlapping genes ##
@@ -122,8 +140,7 @@ colnames(full_counts) <- colnames(uns_counts)
 full_counts[1:2,]
 
 # save full counts
-write.table(full_counts, 
-            paste0(fixed_count_dir, "/", prefix, "_fixed_bids_", date, ".txt"), 
+write.table(full_counts, full_counts_file, 
             sep="\t", quote=FALSE, row.names=FALSE)
 
 ###################################################################
