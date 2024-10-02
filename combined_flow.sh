@@ -28,20 +28,22 @@ module load R/4.4.0
 SRC=/Users/hoto7260/src/Bidir_Counting_Analysis/
 WD=/scratch/Users/hoto7260/Bench_DE/Elkon2015myc
 ### Naming
-PREFIX="Elkon2015myc"
-DATE=04_4_24
+PREFIX=
+DATE=
 
 ## IN Directories (BAMS in this case)
-bams=/scratch/Users/hoto7260/Bench_DE/raw_data/bams/Elkon2015myc/PRO/counting/
+bams=
 
 ### Files
 File with consensus regions (e.g. output from Mumerge)
 CONS_FILE=
 
 ### Parameters
-# window for counting (mu-window & mu + window)
+# Type of counting (MU_COUNTS, SIMPLE, or BOTH)
+COUNT_TYPE="MU_COUNTS"
+# window for counting (mu - window & mu + window)
 COUNT_WIN=500
-# window for TSS overlaps (mu-window & mu + window)
+# window for TSS overlaps (mu - window & mu + window)
 TSS_WIN=25
 # minimum rowSUM counts needed for a gene to be considered "transcribed" and significantly altering bid counts (I used 40 for 4 samples)
 COUNT_LIMIT_GENES=60
@@ -71,7 +73,7 @@ echo "##########################################################################
 echo "########################            1a. GET THE OVERLAPS         ####################"
 echo "#####################################################################################"
 
-# The FULL transcripts with putatives (WARNING: if names are too long, bedtools breaks without warning)
+# The FULL transcripts with putatives (WARNING: if names are too long, bedtools breaks without warning). This has been addressed with the _fixnames file.
 TRANSCRIPTS=${SRC}/assets/hg38_refseq_diff53prime_with_putatives_fixnames.bed
 # The gene file you will use for counting (make sure truncated)
 TRUNC=${SRC}/assets/hg38_refseq_diff53prime_5ptrunc_counting.bed
@@ -92,6 +94,7 @@ TSS_OUT=${OUT_DIR}/overlaps_hg38_TSS1kb_withput_${PREFIX}_MUMERGE_${DATE}.bed
 COUNT_OUT=${OUT_DIR}/overlaps_hg38_withput_${PREFIX}_MUMERGE_${DATE}.bed
 COUNT_TRUNC_OUT=${OUT_DIR}/overlaps_hg38_trunc_${PREFIX}_MUMERGE_${DATE}.bed
 CLOSE_OUT=${OUT_DIR}/closest_hg38_withput_${PREFIX}_MUMERGE_${DATE}.bed
+CLOSE_BID=${OUT_DIR}/closest_Bids_${PREFIX}_MUMERGE_${DATE}.bed
 
 # ##########################
 # # GETTING THE OVERLAPS
@@ -115,6 +118,8 @@ wc -l ${COUNT_TRUNC_OUT}
 ## Bids within 10kb of the transcripts (do 1000 to ensure all are included)
 bedtools closest -D ref -k 100 -a ${TRANSCRIPTS} -b ${COUNT_WIN_FILE} > ${CLOSE_OUT}
 wc -l ${CLOSE_OUT}
+## Bids possibly overlapping with one another (-N means can't have same name)
+bedtools closest -D ref -k 5 -N -a ${TSS_WIN_FILE} -b ${TSS_WIN_FILE} > ${CLOSE_BID}
 
 echo ""
 echo "#####################################################################################"
@@ -155,54 +160,104 @@ wc -l ${WD}/regions/*
 
 echo ""
 echo "###################################################################################"
+echo "######     3. GET TSS Bids & GTF files for Bid Counting (no overlaps)       #######"
+echo "###################################################################################"
+# YES refers to TFEA output being made
+Rscript ${SRC}/bin/get_TSS_and_filt_bids.r ${WD} ${PREFIX} ${DATE} ${COUNT_LIMIT_GENES} ${COUNT_WIN} ${COUNT_TYPE} ${TFEA}
+wc -l ${WD}/regions/*
+
+wd = args[1] # working directory
+prefix = args[2] #prefix for files
+date = args[3] #
+og_bid_file = args[4]
+count_limit = as.integer(args[5])
+fixed_length = as.integer(args[6])
+type = args[7] # type of regions file for counting (SIMPLE or MU_COUNTS or BOTH)
+TFEA = args[8]
+
+echo ""
+echo "###################################################################################"
 echo "########################         3. GET Fixed & Bid Counts     ####################"
 echo "###################################################################################"
-bidirs=${WD}/regions/${PREFIX}_MUMERGE_tfit,dreg_${DATE}_filt.saf
-
 cd ${bams}
 
-echo "Submitted counts with Rsubread for bidsirectionals unstranded......"
-# Use this many threads
-# Count multi-overlapping read (regardless of percentage of overlap)
-# Count reads NOT in a strand specific manner
-featureCounts \
-   -T 32 \
-   -O \
-   -s 0 \
-   -a ${bidirs} \
-   -F 'SAF' \
-   -o ${counts}/${PREFIX}_uns_bidirs.txt \
-   ./*.sorted.bam
+if [[ "$COUNT_TYPE" == "SIMPLE" || "$COUNT_TYPE" == "BOTH" ]]; then
+    bidirs=${WD}/regions/${PREFIX}_MUMERGE_tfit,dreg_${DATE}_filt.saf
+    echo "Submitting counts for Bidirectionals with Simple SAF"
+    # Use this many threads
+    # Count multi-overlapping read (regardless of percentage of overlap)
+    # Count reads NOT in a strand specific manner
+    featureCounts \
+       -T 32 \
+       -O \
+       -s 0 \
+       -a ${bidirs} \
+       -F 'SAF' \
+       -o ${counts}/${PREFIX}_uns_bidirs.txt \
+       ./*.sorted.bam
+    
+    # Count reads NOT in a strand specific manner
+    featureCounts \
+       -T 32 \
+       -O \
+       -s 1 \
+       -a ${bidirs} \
+       -F 'SAF' \
+       -o ${counts}/${PREFIX}_pos_bidirs.txt \
+       ./*.sorted.bam
+    
+    # Count multi-overlapping read
+    featureCounts \
+       -T 32 \
+       -O \
+       -s 2 \
+       -a ${bidirs} \
+       -F 'SAF' \
+       -o ${counts}/${PREFIX}_neg_bidirs.txt \
+       ./*.sorted.bam
 
-echo "Submitted counts with Rsubread for bidirectionals stranded (+)......"
-# Use this many threads
-# Count multi-overlapping read
-# Count reads NOT in a strand specific manner
-featureCounts \
-   -T 32 \
-   -O \
-   -s 1 \
-   -a ${bidirs} \
-   -F 'SAF' \
-   -o ${counts}/${PREFIX}_pos_bidirs.txt \
-   ./*.sorted.bam
+    # Fix the counts
+    Rscript ${SRC}/bin/fix_bid_counts.r ${WD} ${PREFIX} ${DATE} ${COUNT_LIMIT_BIDS} ${COUNT_LIMIT_GENES} "SIMPLE"
+fi
 
-echo "Submitted counts with Rsubread for bidirectionals stranded (-)......"
-# Use this many threads
-# Count multi-overlapping read
-featureCounts \
-   -T 32 \
-   -O \
-   -s 2 \
-   -a ${bidirs} \
-   -F 'SAF' \
-   -o ${counts}/${PREFIX}_neg_bidirs.txt \
-   ./*.sorted.bam
+if [[ "$COUNT_TYPE" == "MU_COUNTS" || "$COUNT_TYPE" == "BOTH" ]]; then
+    gtf_prefix=${WD}/regions/${PREFIX}_mucounts_${COUNT_WIN}_${DATE}
+    # count using the GTFs
+    featureCounts \
+       -T 32 \
+       -O \
+       -s 1 \
+       -a ${gtf_prefix}.gtf \
+       -t "exon" \
+       -F 'GTF' \
+       -o ${counts}/${PREFIX}_mucounts_str_bidirs.txt \
+       ./*.sorted.bam
 
-#########################
-## Now Fix the Counts ##
-#########################
-Rscript ${SRC}/bin/fix_bid_counts.r ${WD} ${PREFIX} ${DATE} ${COUNT_LIMIT_BIDS} ${COUNT_LIMIT_GENES}
+    featureCounts \
+       -T 32 \
+       -O \
+       -s 1 \
+       -a ${gtf_prefix}_pos.gtf \
+       -t "exon" \
+       -F 'GTF' \
+       -o ${counts}/${PREFIX}_mucounts_pos_bidirs.txt \
+       ./*.sorted.bam
+
+       featureCounts \
+       -T 32 \
+       -O \
+       -s 1 \
+       -a ${gtf_prefix}_neg.gtf \
+       -t "exon" \
+       -F 'GTF' \
+       -o ${counts}/${PREFIX}_mucounts_neg_bidirs.txt \
+       ./*.sorted.bam
+
+       # Fix the counts
+       Rscript ${SRC}/bin/fix_bid_counts.r ${WD} ${PREFIX} ${DATE} ${COUNT_LIMIT_BIDS} ${COUNT_LIMIT_GENES} "MU_COUNTS"
+fi
+
+
 wc -l ${fixed_counts}/*
 
 echo ""
