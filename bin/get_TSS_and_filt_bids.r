@@ -35,12 +35,15 @@ get_info_for_calls <- function(close_df, fixed_length=1000) {
     close_df$mu1 <- as.integer((close_df$V2+close_df$V3)/2)
     close_df$mu2 <- as.integer((close_df$V6+close_df$V7)/2)
     close_df$MUDIFF <- close_df$mu1-close_df$mu2
-    close_df <- close_df[abs(close_df$MUDIFF) < diff_call,]
-    # get the desired distances of interest 
+    
+    # get the appropriate distances
     close_df$V2 = close_df$mu1 - fixed_length
     close_df$V3 = close_df$mu1 + fixed_length
     close_df$V6 = close_df$mu2 - fixed_length
     close_df$V7 = close_df$mu2 + fixed_length
+    orig_close_df = close_df
+    close_df <- close_df[abs(close_df$MUDIFF) < diff_call,]
+    cat("\nThe number of situations with MUDIFF smaller than diff call", nrow(close_df))
     
     # get leftmost and rightmost
     close_df$leftmost_Bidir <- "NA"; close_df$leftmost_left <- 0; close_df$leftmost_mu <- 0; close_df$leftmost_right <- 0
@@ -70,7 +73,7 @@ get_info_for_calls <- function(close_df, fixed_length=1000) {
     if (nrow(close_df[close_df$newMUDIFF < 0,]) > 0) {
         stop("There is a problem in the overlap files of the Bids") }
     
-    return(close_df)
+    return(list(close_df, orig_close_df))
     }
 
 get_new_pos <- function(close_df) {
@@ -94,6 +97,7 @@ get_new_pos <- function(close_df) {
     return(close_df)
     }
 
+
 get_inbetween_lines <- function(close_df, in_between) {
     # This function gets the GTF lines for cases where a region has overlapping regions
     #     on both sides of it.
@@ -101,34 +105,76 @@ get_inbetween_lines <- function(close_df, in_between) {
     #     close_df: a dataframe with the columns chrom, start, stop, name of region 1, the same for region 2, and finally the distance between the two regions. It is assumed that the middle of the start and stop of each region (mu) is the starting point of each transcript.
     #     in_between: the list of regions that have overlapping regions on both sides 
     # for each in between
-    between_lines = c()
-    for (between_bid in in_between) {
-        # get the features closest where BID is on the left
+    # Initialize a list to store results (more efficient than growing a vector)
+    between_lines_list = vector("list", length(in_between))
+    for (i in seq_along(in_between)) {
+        if (i == 20000) {print("GOT TO 20000")}
+        between_bid <- in_between[i]
+        # Filter once for each between_bid to avoid redundant filtering
         left = close_df[close_df$leftmost_Bid == between_bid,]
-        # get the features closest where BID is on the right
         right = close_df[close_df$rightmost_Bid == between_bid,]
-        # get the gene coord (just left and right mu)
-        # get the pos coord (mu & leftest right mu on right)
-        # get the neg coord (rightest left mu & mu)
-        between_lines = c(between_lines, paste0(left$V1[1], "\t.\tgene\t", left$leftmost_left[1], 
-                                                "\t", left$leftmost_right[1], '\t.\t.\t.\tgene_id "', between_bid, '";'), 
-                                              paste0(left$V1[1], "\t.\texon\t", left$leftmost_mu[1], "\t",
-                                              min(c(left$rightmost_mu, left$leftmost_right[1])),  '\t.\t+\t.\tgene_id "', between_bid, '"; transcript_id "', between_bid, '";'), 
-                                              paste0(left$V1[1], "\t.\texon\t", max(c(right$leftmost_mu[1], left$leftmost_left[1])), "\t", right$rightmost_mu[1],  '\t.\t-\t.\tgene_id "', between_bid, 
-                                                  '"; transcript_id "', between_bid, '";'))
+        # Check if left and right have rows to avoid subscript errors
+        if (nrow(left) > 0 && nrow(right) > 0) {
+            # Build the gene, pos coord, and neg coord strings
+            gene_line <- paste0(left$V1[1], "\t.\tgene\t", left$leftmost_left[1], "\t", left$leftmost_right[1], 
+                                '\t.\t.\t.\tgene_id "', between_bid, '";')
+            
+            pos_coord_line <- paste0(left$V1[1], "\t.\texon\t", left$leftmost_mu[1], "\t", 
+                                     min(c(left$rightmost_mu, left$leftmost_right[1])), 
+                                     '\t.\t+\t.\tgene_id "', between_bid, '"; transcript_id "', between_bid, '";')
+            
+            neg_coord_line <- paste0(left$V1[1], "\t.\texon\t", max(c(right$leftmost_mu[1], left$leftmost_left[1])), "\t", 
+                                     right$rightmost_mu[1],  
+                                     '\t.\t-\t.\tgene_id "', between_bid, '"; transcript_id "', between_bid, '";')
+            
+            # Store results in the list instead of concatenating each time
+            between_lines_list[[i]] <- c(gene_line, pos_coord_line, neg_coord_line)
+        }
     }
+    
+    # Combine the list into a single vector after the loop
+    between_lines <- unlist(between_lines_list)
     return(between_lines)
+}
+
+get_isolated_lines <- function(orig_close_df, isolated) {
+    # get non duplicated
+    orig_close_df = orig_close_df[orig_close_df$V4 %in% isolated,]
+    orig_close_df = orig_close_df[,c("V1", "V2", "V3", "V4", "mu1")]
+    orig_close_df = orig_close_df[!duplicated(orig_close_df),]
+    if (nrow(orig_close_df) != length(isolated)) {
+        cat(nrow(orig_close_df), length(isolated))
+        stop("Not a match in duplications")}
+    # for each isolated bidir
+    isolated_lines = c()
+    new_close_df <- data.frame(data.table("gene_row"=paste0(orig_close_df$V1, "\t.\tgene\t", orig_close_df$V2, 
+                                                            "\t", orig_close_df$V3, '\t.\t.\t.\tgene_id "', orig_close_df$V4, '";'), 
+                               "pos_row"=paste0(orig_close_df$V1, "\t.\texon\t", orig_close_df$mu1, "\t",
+                                                           orig_close_df$V3,  '\t.\t+\t.\tgene_id "', orig_close_df$V4, 
+                                                  '"; transcript_id "', orig_close_df$V4, '";'), 
+                               "neg_row"=paste0(orig_close_df$V1, "\t.\texon\t", orig_close_df$V2, "\t",
+                                                           orig_close_df$mu1,  '\t.\t-\t.\tgene_id "', orig_close_df$V4, 
+                                                  '"; transcript_id "', orig_close_df$V4, '";')))
+    isolated_lines <- as.vector(t(new_close_df))
+    return(isolated_lines)
     }
 
-
-
-get_GTF_lines <- function(close_df) {
+get_GTF_lines <- function(close_df, orig_close_df) {
     # This function gets the annotation lines to use for a GTF that accounts for overlapping regions, including regions that have overlap with other regions on both strands.
     # PARAMETERS
-    #       close_df: close_df that has already gone through the functions get_info_for_calls and get_new_pos.
-    in_between <- intersect(close_df$rightmost_Bidir, close_df$leftmost_Bidir)
-    cat("\nIn between", length(in_between), "\n")
-    inbetween_lines = get_inbetween_lines(close_df, in_between)
+    #       close_df: close_df that has already gone through the functions get_info_for_calls and get_new_pos AND has been filtered according
+    #           to max_distance.
+    #       orig_close_df: close_df that has already gone through the functions get_info_for_calls and get_new_pos but has not been filtered.
+    inbetween <- intersect(close_df$rightmost_Bidir, close_df$leftmost_Bidir)
+    isolated <- setdiff(orig_close_df$V4, union(close_df$rightmost_Bidir, close_df$leftmost_Bidir))
+    cat("\nIsolated", length(isolated), "\n")
+    isolated_lines = get_isolated_lines(orig_close_df, isolated)
+    cat("\nIn between", length(inbetween), "\n")
+    start.time <- Sys.time()
+    inbetween_lines = get_inbetween_lines(close_df, inbetween)
+    end.time <- Sys.time()
+    print("Time to deconvolute those in between", end.time-start.time)
+    
     close_df$left_gene_row = paste0(close_df$V1, "\t.\tgene\t", close_df$leftmost_left, "\t", close_df$leftmost_right, 
                                    '\t.\t.\t.\tgene_id "', close_df$leftmost_Bidir, '";')
     close_df$left_neg_row = paste0(close_df$V1, "\t.\texon\t", close_df$left_neg_start, "\t", close_df$left_neg_stop, 
@@ -145,24 +191,27 @@ get_GTF_lines <- function(close_df) {
     close_df$right_pos_row = paste0(close_df$V1, "\t.\texon\t", close_df$right_pos_start, "\t", close_df$right_pos_stop, 
                                    '\t.\t+\t.\tgene_id "', close_df$rightmost_Bidir, 
                                   '"; transcript_id "', close_df$rightmost_Bidir, '";' )
-    df <- close_df[,c("left_gene_row", "left_neg_row", "left_pos_row", 
-                 "right_gene_row", "right_neg_row", "right_pos_row")]
-    cat("\nNumber of rows so far", dim(df))
-    lines_vector <- as.vector(t(df))
-    #between_removing_regexp <- paste(in_between, collapse = "|")
-    #return(list("bet"=between_removing_regexp, "lines"=lines_vector))
+    # split into right and left
+    right = close_df[,c("right_gene_row", "right_neg_row", "right_pos_row", "rightmost_Bidir")]
+    left = close_df[,c("left_gene_row", "left_neg_row", "left_pos_row", "leftmost_Bidir")]
+    # comebine
+    colnames(right) = c("gene_row", "neg_row", "pos_row", "bidir")
+    colnames(left) = c("gene_row", "neg_row", "pos_row", "bidir")
+    # remove any in between
+    df = rbind(right, left)
+    df = df[!df$bidir %in% inbetween,]
+    cat("\nOnly keeping", nrow(df), " compared to ", nrow(close_df))
+    lines_vector <- as.vector(t(df[,c("gene_row", "neg_row", "pos_row")]))
+    # remove any duplicates
+    lines_vector <- lines_vector[!duplicated(lines_vector)]
     cat("\nNumber of lines so far", length(lines_vector))
     # if some in between
-    if (length(in_between) != 0) {
-        # the in_between into chunks of 100
-        chunks <- split(my_vect, ceiling(seq_along(my_vect) / 100))
-        for (chunk in chunks) {
-             between_removing_regexp <- paste(chunk, collapse = "|")
-            lines_vector <- lines_vector[!grepl(between_removing_regexp, lines_vector)]
-            }
+    if (length(inbetween) != 0) {
         # add the correct lines for the in between
         lines_vector <- c(lines_vector, inbetween_lines)
         }
+    # add the isolated ones back in
+    lines_vector <- c(lines_vector, isolated_lines)
     
     return(lines_vector)
     }
@@ -311,18 +360,20 @@ if (type == "MU_COUNTS" | type == "BOTH") {
     closest <- fread(close_bid_file)
     start.time <- Sys.time()
     # get the info needed for positions
-    closest = get_info_for_calls(closest, count_win)
+    closest_list = get_info_for_calls(closest, count_win)
     # get the proper positions
-    closest = get_new_pos(closest)
+    closest = get_new_pos(closest_list[[1]])
     # get the GTF lines and write them
-    gtf_lines = get_GTF_lines(closest)
+    gtf_lines = get_GTF_lines(closest, closest_list[[2]])
     writeLines(gtf_lines, paste0(out_dir, prefix, "_", date, "_mucounts_", str(count_win), ".gtf"))
     # now get the positive and negative forms
     gtf <- fread(paste0(out_dir, prefix, "_mucounts_", str(count_win), "_", date ".gtf"))
     pos_gtf = gtf[gtf$V7 %in% c(".", "+"),]
     neg_gtf = gtf[gtf$V7 %in% c(".", "-"),]
-    if (nrow(gtf)/3*2 != nrow(pos_gtf)) {
-        stop("There was a problem in getting the GTF. One of the regions does not have transcripts on both strands.") }
+    gene_only = gtf[gtf$V3 == "gene",]
+    cat("\nNumber of regions", nrow(gene_only))
+    cat("\nNumber of duplicated regions", length(unique(gene_only$V9[duplicated(gene_only$V9)])))
+
     write.table(pos_gtf, paste0(out_dir, prefix, "_mucounts_", str(count_win), "_", date "_pos.gtf"), 
             quote=FALSE, sep="\t", row.names=FALSE, col.names=FALSE)
     write.table(neg_gtf, paste0(out_dir, prefix, "_mucounts_", str(count_win), "_", date "_neg.gtf"), 
