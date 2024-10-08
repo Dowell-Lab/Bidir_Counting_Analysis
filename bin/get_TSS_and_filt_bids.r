@@ -16,7 +16,6 @@ out_dir = paste0(wd, "/regions/")
 overlaps_dir = paste0(wd, "/overlaps/")
 tss_out_file = paste0(overlaps_dir, "overlaps_hg38_TSS1kb_withput_", prefix, "_MUMERGE_", date, ".bed")
 count_out_file = paste0(overlaps_dir, "overlaps_hg38_withput_", prefix, "_MUMERGE_", date, ".bed")
-closest_file = paste0(overlaps_dir, "closest_hg38_withput_", prefix, "_MUMERGE_", date, ".bed")
 count_file = paste0(wd, "/counts/", prefix, "_str_put_genes.txt")
 close_bid_file = paste0(overlaps_dir, "closest_Bids_", prefix, "_MUMERGE_" date, ".bed")
 
@@ -108,7 +107,6 @@ get_inbetween_lines <- function(close_df, in_between) {
     # Initialize a list to store results (more efficient than growing a vector)
     between_lines_list = vector("list", length(in_between))
     for (i in seq_along(in_between)) {
-        if (i == 20000) {print("GOT TO 20000")}
         between_bid <- in_between[i]
         # Filter once for each between_bid to avoid redundant filtering
         left = close_df[close_df$leftmost_Bid == between_bid,]
@@ -309,41 +307,18 @@ count_over_pos = count_over[count_over$V6 == "+", ]
 pos_bids <- unique(count_over_pos$V10)
 neg_bids <- unique(count_over_neg$V10)
 pos_neg_filt <- intersect(pos_bids, neg_bids)
-# remove those with TSS
-pos_neg_filt <- setdiff(pos_neg_filt, over_filt$BidID)
-cat("\nNumber of NonTSS bids with overlap of transcribed genes on both strands", length(pos_neg_filt))
-
-#############################################################################
-## 3. Filter the bids according to 5kb downstream of TWO transcribed genes ##
-#############################################################################
-closest <- fread(closest_file)
-# only keep those with 10kb distance from either end
-closest <- closest[abs(closest$V11) < 10000,]
-# only keep those with genes that are being transcribed significantly
-closest <- closest[!closest$V4 %in% low_counts]
-# only keep those that are within 10kb to the 3prime end 
-# for positive genes, means V11 <10000 & positive 
-closest <- closest[(closest$V6 == "+" & closest$V11 > 0 & closest$V11 < 10001) | closest$V6 == "-",]
-nrow(closest)
-# for negative genes, means V11 <10000 & negative
-closest <- closest[(closest$V6 == "-" & closest$V11 < 0 & closest$V11 > -10001) | closest$V6 == "+",]
-# now see which bids are this for two colliding genes and NOT TSS
-pos_colliding <- closest[closest$V6 == "+",]$V10
-neg_colliding <- closest[closest$V6 == "-",]$V10
-pos_neg_colliding <- setdiff(intersect(pos_colliding, neg_colliding), 
-                             over_filt$BidID)
-cat("\nNumber of NonTSS bids within 5kb of 3' of transcribed genes on both strands", length(pos_neg_colliding))
+# Allow TSS to not be removed since likely to overlap two genes
+pos_neg_remove <- setdiff(pos_neg_filt, over_filt$BidID)
 
 # read in the original bids
 bids <- fread(og_bid_file)
-pos_neg_remove <- union(pos_neg_colliding, pos_neg_filt)
 cat("\nTotal Number of NonTSS bids removing due to convolution", length(pos_neg_remove))
 bids <- bids[!bids$V4 %in% pos_neg_remove]
 cat("\nTotal Number of Bids remaining", nrow(bids))
 
 
 ######################################################
-## 4. Get the counting files for the remaining bids ##
+## 3. Get the counting files for the remaining bids ##
 ######################################################
 ### SIMPLE SAF ACCORDING TO FIXED WINDOW LENGTH
 if (type == "SIMPLE" | type == "BOTH") {
@@ -386,7 +361,7 @@ if (type == "MU_COUNTS" | type == "BOTH") {
 
 
 ##############################################
-## 5. If TFEA output requested, print out ##
+## 4. If TFEA output requested, print out ##
 ##############################################
 if (TFEA == "YES") {
     # split up the tss and notss bids

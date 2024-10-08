@@ -77,8 +77,11 @@ echo "##########################################################################
 TRANSCRIPTS=${SRC}/assets/hg38_refseq_diff53prime_with_putatives_fixnames.bed
 # The gene file you will use for counting (make sure truncated)
 TRUNC=${SRC}/assets/hg38_refseq_diff53prime_5ptrunc_counting.bed
+# the gene file where there are 
+GENE_DWN=${SRC}/assets/hg38_refseq_diff53prime_with_putatives_fixnames_10kb_downstream.bed 
 # TSS 1kb region (500bp ± TSS)
 TSS_BED=${SRC}/assets/hg38_TSS1kb_refseq_diff53prime_with_putatives.bed
+
 
 ##########################
 # GET THE INPUT BED FILES
@@ -91,7 +94,7 @@ TSS_WIN_FILE=${WD}/regions/${PREFIX}_${DATE}_MUMERGE_${COUNT_WIN}win_TSS.sorted.
 OUT_DIR=${WD}/overlaps
 mkdir -p ${OUT_DIR}
 TSS_OUT=${OUT_DIR}/overlaps_hg38_TSS1kb_withput_${PREFIX}_MUMERGE_${DATE}.bed
-COUNT_OUT=${OUT_DIR}/overlaps_hg38_withput_${PREFIX}_MUMERGE_${DATE}.bed
+COUNT_OUT=${OUT_DIR}/overlaps_hg38_withput_dwnstm_${PREFIX}_MUMERGE_${DATE}.bed
 COUNT_TRUNC_OUT=${OUT_DIR}/overlaps_hg38_trunc_${PREFIX}_MUMERGE_${DATE}.bed
 CLOSE_OUT=${OUT_DIR}/closest_hg38_withput_${PREFIX}_MUMERGE_${DATE}.bed
 CLOSE_BID=${OUT_DIR}/closest_Bids_${PREFIX}_MUMERGE_${DATE}.bed
@@ -109,15 +112,12 @@ TSS_WIN_FILE=${INT_TSS_WIN}
 # Identifying TSS Bids
 bedtools intersect -wo -a ${TSS_WIN_FILE} -b ${TSS_BED} > ${TSS_OUT}
 wc -l ${TSS_OUT}
-## Bids that overlap with transcripts (for counting) -- must have gene first
-bedtools intersect -wo -a ${TRANSCRIPTS} -b ${COUNT_WIN_FILE} > ${COUNT_OUT}
+## Bids that overlap with transcripts (for counting so includes 10kb downstream) -- must have gene first 
+bedtools intersect -wo -a ${TRANSCRIPTS} -b ${OVER_DN} > ${COUNT_OUT}
 wc -l ${COUNT_OUT}
-## Bids that overlap with transcripts (for counting) -- must have gene first
+## Bids that overlap with truncated transcripts -- must have gene first
 bedtools intersect -wo -a ${TRUNC} -b ${COUNT_WIN_FILE} > ${COUNT_TRUNC_OUT}
 wc -l ${COUNT_TRUNC_OUT}
-## Bids within 10kb of the transcripts (do 1000 to ensure all are included)
-bedtools closest -D ref -k 100 -a ${TRANSCRIPTS} -b ${COUNT_WIN_FILE} > ${CLOSE_OUT}
-wc -l ${CLOSE_OUT}
 ## Bids possibly overlapping with one another (-N means can't have same name)
 bedtools closest -D ref -k 5 -N -a ${TSS_WIN_FILE} -b ${TSS_WIN_FILE} > ${CLOSE_BID}
 
