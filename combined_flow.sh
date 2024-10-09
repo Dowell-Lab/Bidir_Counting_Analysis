@@ -26,7 +26,7 @@ module load R/4.4.0
 
 ### Paths
 SRC=/Users/hoto7260/src/Bidir_Counting_Analysis/
-WD=/scratch/Users/hoto7260/Bench_DE/Elkon2015myc
+WD=/scratch/Users/
 ### Naming
 PREFIX=
 DATE=
@@ -113,7 +113,7 @@ TSS_WIN_FILE=${INT_TSS_WIN}
 bedtools intersect -wo -a ${TSS_WIN_FILE} -b ${TSS_BED} > ${TSS_OUT}
 wc -l ${TSS_OUT}
 ## Bids that overlap with transcripts (for counting so includes 10kb downstream) -- must have gene first 
-bedtools intersect -wo -a ${TRANSCRIPTS} -b ${OVER_DN} > ${COUNT_OUT}
+bedtools intersect -wo -a ${TRANSCRIPTS} -b ${GENE_DWN} > ${COUNT_OUT}
 wc -l ${COUNT_OUT}
 ## Bids that overlap with truncated transcripts -- must have gene first
 bedtools intersect -wo -a ${TRUNC} -b ${COUNT_WIN_FILE} > ${COUNT_TRUNC_OUT}

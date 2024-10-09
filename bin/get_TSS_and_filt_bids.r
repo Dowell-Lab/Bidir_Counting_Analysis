@@ -15,13 +15,13 @@ og_bid_file=paste0(wd, "/regions/", prefix, "_", date, "_MUMERGE_", count_win, "
 out_dir = paste0(wd, "/regions/")
 overlaps_dir = paste0(wd, "/overlaps/")
 tss_out_file = paste0(overlaps_dir, "overlaps_hg38_TSS1kb_withput_", prefix, "_MUMERGE_", date, ".bed")
-count_out_file = paste0(overlaps_dir, "overlaps_hg38_withput_", prefix, "_MUMERGE_", date, ".bed")
+count_out_file = paste0(overlaps_dir, "overlaps_hg38_withput_dwnstm_", prefix, "_MUMERGE_", date, ".bed")
 count_file = paste0(wd, "/counts/", prefix, "_str_put_genes.txt")
-close_bid_file = paste0(overlaps_dir, "closest_Bids_", prefix, "_MUMERGE_" date, ".bed")
+close_bid_file = paste0(overlaps_dir, "closest_Bids_", prefix, "_MUMERGE_", date, ".bed")
 
 
 ###########################
-#####    FUNCTIONS    #####
+#####    FUNCTIONS    #####s
 ###########################
 
 get_info_for_calls <- function(close_df, fixed_length=1000) {

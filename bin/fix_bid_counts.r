@@ -13,7 +13,7 @@ cat("\nARGUMENTS:", args, "\n")
 region_dir = paste0(wd, "/regions/")
 fixed_count_dir = paste0(wd, "/fixed_counts/")
 overlaps_dir = paste0(wd, "/overlaps/")
-count_out_file = paste0(overlaps_dir, "overlaps_hg38_withput_", prefix, "_MUMERGE_", date, ".bed")
+count_out_file = paste0(overlaps_dir, "overlaps_hg38_withput_dwnstm_", prefix, "_MUMERGE_", date, ".bed")
 closest_file = paste0(overlaps_dir, "closest_hg38_withput_", prefix, "_MUMERGE_", date, ".bed")
 tss_file = paste0(region_dir, "tss_bid_", prefix, "_", date, ".txt")
 count_dir <- paste0(wd, "/counts")
@@ -64,27 +64,13 @@ tss <- unique(tss$BidID)
 over <- fread(count_out_file)
 # only keep those with significant counts
 over <- over[over$V4 %in% high_counts]
-
-# only keep closest  genes that are being transcribed significantly
-closest <- fread(closest_file)
-closest <- closest[closest$V4 %in% high_counts]
-# only keep those that are within 5kb to the 3prime end 
-# for positive genes, means V11 <5000 & positive 
-closest <- closest[(closest$V6 == "+" & closest$V11 > 0 & closest$V11 < 5001) | closest$V6 == "-",]
-# for negative genes, means V11 <5000 & negative
-closest <- closest[(closest$V6 == "-" & closest$V11 < 0 & closest$V11 > -5001) | closest$V6 == "+",]
-
 # only consider bids not previously filtered out
 over <- over[over$V10 %in% uns_counts$Geneid]
-closest <- closest[closest$V10 %in% uns_counts$Geneid]
 
 # remove the tss and get the pos & neg ones
 over <- over[!over$V10 %in% tss,]
 over_bid_pos <- unique(over[over$V6 == "+",]$V10)
 over_bid_neg <- unique(over[over$V6 == "-",]$V10)
-closest <- closest[!closest$V10 %in% tss,]
-closest_bid_pos <- unique(closest[closest$V6 == "+",]$V10)
-closest_bid_neg <- unique(closest[closest$V6 == "-",]$V10)
 
 # remove those that are within 5kb of 3' of transcribed gene & in opp strand gene
 bid_pos_conflict <- union(closest_bid_pos, over_bid_pos)
