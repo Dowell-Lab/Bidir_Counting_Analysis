@@ -100,11 +100,11 @@ if [[ -z "$mmfiltbams" ]]; then
                samtools view -h -b > ${mmfiltbams}/${prefix}.mmfilt.sorted.bam
            samtools index ${mmfiltbams}/${prefix}.mmfilt.sorted.bam ${mmfiltbams}/${prefix}.mmfilt.sorted.bam.bai
         done
-    else; then
+    else
         echo "Need to have at least one of the variables filled: mmfiltbams, crams, bams"
         exit 152
     fi
-else; then
+else
     echo "Using the provided multimapped filtered bams at ${mmfiltbams}"
 fi
 
