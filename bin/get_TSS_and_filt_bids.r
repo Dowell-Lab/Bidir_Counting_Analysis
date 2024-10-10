@@ -6,7 +6,7 @@ cat("\nArguments: ", args, "\n")
 wd = args[1] # working directory
 prefix = args[2] #prefix for files
 date = args[3] #
-count_limit = as.integer(args[4])
+count_limit = as.numeric(args[4])
 count_win = as.integer(args[5])
 type = args[6] # type of regions file for counting (SIMPLE or MU_COUNTS or BOTH)
 TFEA = args[7]
@@ -15,7 +15,8 @@ og_bid_file=paste0(wd, "/regions/", prefix, "_", date, "_MUMERGE_", count_win, "
 out_dir = paste0(wd, "/regions/")
 overlaps_dir = paste0(wd, "/overlaps/")
 tss_out_file = paste0(overlaps_dir, "overlaps_hg38_TSS1kb_withput_", prefix, "_MUMERGE_", date, ".bed")
-count_out_file = paste0(overlaps_dir, "overlaps_hg38_withput_dwnstm_", prefix, "_MUMERGE_", date, ".bed")
+count_out_file = paste0(overlaps_dir, "overlaps_hg38_withput_", prefix, "_MUMERGE_", date, ".bed")
+dwn_out_file = paste0(overlaps_dir, "overlaps_hg38_withput_dwnstm_", prefix, "_MUMERGE_", date, ".bed")
 count_file = paste0(wd, "/counts/", prefix, "_str_put_genes.txt")
 close_bid_file = paste0(overlaps_dir, "closest_Bids_", prefix, "_MUMERGE_", date, ".bed")
 
@@ -42,7 +43,6 @@ get_info_for_calls <- function(close_df, fixed_length=1000) {
     close_df$V7 = close_df$mu2 + fixed_length
     orig_close_df = close_df
     close_df <- close_df[abs(close_df$MUDIFF) < diff_call,]
-    cat("\nThe number of situations with MUDIFF smaller than diff call", nrow(close_df))
     
     # get leftmost and rightmost
     close_df$leftmost_Bidir <- "NA"; close_df$leftmost_left <- 0; close_df$leftmost_mu <- 0; close_df$leftmost_right <- 0
@@ -157,21 +157,23 @@ get_isolated_lines <- function(orig_close_df, isolated) {
     return(isolated_lines)
     }
 
-get_GTF_lines <- function(close_df, orig_close_df) {
+get_GTF_lines <- function(close_df, orig_close_df, bids_keep) {
     # This function gets the annotation lines to use for a GTF that accounts for overlapping regions, including regions that have overlap with other regions on both strands.
     # PARAMETERS
     #       close_df: close_df that has already gone through the functions get_info_for_calls and get_new_pos AND has been filtered according
     #           to max_distance.
     #       orig_close_df: close_df that has already gone through the functions get_info_for_calls and get_new_pos but has not been filtered.
+    #       bids_keep: list of strings (bids that are to be considered for the GTF)
     inbetween <- intersect(close_df$rightmost_Bidir, close_df$leftmost_Bidir)
+    # only keep those that can be deconvoluted
+    inbetween_keep <- intersect(inbetween, bids_keep)
     isolated <- setdiff(orig_close_df$V4, union(close_df$rightmost_Bidir, close_df$leftmost_Bidir))
+    # only keep those that can be deconvoluted
+    isolated <- intersect(isolated, bids_keep)
     cat("\nIsolated", length(isolated), "\n")
     isolated_lines = get_isolated_lines(orig_close_df, isolated)
     cat("\nIn between", length(inbetween), "\n")
-    start.time <- Sys.time()
-    inbetween_lines = get_inbetween_lines(close_df, inbetween)
-    end.time <- Sys.time()
-    print("Time to deconvolute those in between", end.time-start.time)
+    inbetween_lines = get_inbetween_lines(close_df, inbetween_keep)
     
     close_df$left_gene_row = paste0(close_df$V1, "\t.\tgene\t", close_df$leftmost_left, "\t", close_df$leftmost_right, 
                                    '\t.\t.\t.\tgene_id "', close_df$leftmost_Bidir, '";')
@@ -198,11 +200,13 @@ get_GTF_lines <- function(close_df, orig_close_df) {
     # remove any in between
     df = rbind(right, left)
     df = df[!df$bidir %in% inbetween,]
-    cat("\nOnly keeping", nrow(df), " compared to ", nrow(close_df))
+    # remove any not being kept due to convolution of counts
+    df = df[df$bidir %in% bids_keep,]
+    df = df[!duplicated(df),]
+    cat("\nFull Number Considered", length(inbetween)+length(isolated)+nrow(df), "\n")
     lines_vector <- as.vector(t(df[,c("gene_row", "neg_row", "pos_row")]))
     # remove any duplicates
     lines_vector <- lines_vector[!duplicated(lines_vector)]
-    cat("\nNumber of lines so far", length(lines_vector))
     # if some in between
     if (length(inbetween) != 0) {
         # add the correct lines for the in between
@@ -267,11 +271,12 @@ over_filt <- over[over$unique %in% keep,]
 over_filt <- over_filt[!over_filt$unique %in% remove,]
 # Record the numbers changed
 trans_with_tss_filt <- unique(over_filt$V8)
-cat("\nOriginal # Transcripts captured:", length(trans_with_tss), "and new #:", length(trans_with_tss_filt))
+cat("\nOriginal # Transcripts with identified TSS bids:", length(trans_with_tss), "and new #:", length(trans_with_tss_filt))
 genes_with_tss_filt <- unique(over_filt$Gene)
-cat("\nOriginal # Genes captured:", length(genes_with_tss), "and new #:", length(genes_with_tss_filt))
+cat("\nOriginal # Genes with identified TSS bid:", length(genes_with_tss), "and new #:", length(genes_with_tss_filt))
 cat("\nOriginal MUDIFF quantiles vs Filtered:")
 quantile(over$MUDIFF, probs = seq (0, 1, 0.25), na.rm = FALSE)
+cat("\n")
 quantile(over_filt$MUDIFF, probs = seq (0, 1, 0.25), na.rm = FALSE)
 
 # Save the bidirectionals
@@ -287,34 +292,46 @@ write.table(over_filt, paste0(out_dir, "tss_bid_", prefix, "_", date, ".txt"),
 ##############################################
 ## 2. Filter the bids according to overlaps ##
 ##############################################
-# read in the overlaps for counting
+# read in the overlaps of Bids with transcripts (either full or downstream)
 count_over <- fread(count_out_file)
+dwn_over <- fread(dwn_out_file)
+
 # read in the prel gene counts
 counts <- fread(count_file)
+colnames(counts) <- c("chrom", "start", "stop", "bidir", "dot", "strand", "count", "cov_bases", "length", "cov_frac")
 # ensure that the Genes and overlaps have the same Geneid format
-counts$Geneid <- str_split_fixed(counts$Geneid, ",", 2)[,1]
+counts$Geneid <- str_split_fixed(counts$bidir, ",", 2)[,1]
 length(setdiff(count_over$V4, counts$Geneid))
-# get the low counts
-count_matrix = data.frame(counts[,7:ncol(counts)])
-low_counts = rownames(count_matrix[rowSums(count_matrix) < count_limit,])
+# # get the low counts
+# count_matrix = data.frame(counts[,7:ncol(counts)])
+# rownames(count_matrix) = counts$Geneid
+# low_counts = rownames(count_matrix[rowSums(count_matrix) < count_limit,])
+high_counts = counts[counts$cov_frac > count_limit,]$Geneid
+cat("\nNUM gene isoforms with coverage >", as.character(count_limit), length(high_counts), high_counts[1:4])
 # only consider overlaps with genes with OUT low counts
-count_over <- count_over[!count_over$V4 %in% low_counts]
+count_over <- count_over[count_over$V4 %in% high_counts]
+dwn_over <- dwn_over[dwn_over$V4 %in% high_counts]
 
 # Split the overlaps into positive and negative strands
 count_over_neg = count_over[count_over$V6 == "-", ]
 count_over_pos = count_over[count_over$V6 == "+", ]
+dwn_over_neg = dwn_over[dwn_over$V6 == "-", ]
+dwn_over_pos = dwn_over[dwn_over$V6 == "+", ]
 
-pos_bids <- unique(count_over_pos$V10)
-neg_bids <- unique(count_over_neg$V10)
-pos_neg_filt <- intersect(pos_bids, neg_bids)
-# Allow TSS to not be removed since likely to overlap two genes
-pos_neg_remove <- setdiff(pos_neg_filt, over_filt$BidID)
+# Get the NONTSS overlapping on one strand strands
+bid_pos_conflict <- setdiff(union(count_over_pos$V10, dwn_over_pos$V10), tss)
+bid_neg_conflict <- setdiff(union(count_over_neg$V10, dwn_over_neg$V10), tss)
+remove_bids = intersect(bid_pos_conflict, bid_neg_conflict)
+
+cat("\nTotal Number of NonTSS bids removing due to overlapping transcribed genes on both strands", 
+    length(remove_bids))
 
 # read in the original bids
 bids <- fread(og_bid_file)
-cat("\nTotal Number of NonTSS bids removing due to convolution", length(pos_neg_remove))
-bids <- bids[!bids$V4 %in% pos_neg_remove]
-cat("\nTotal Number of Bids remaining", nrow(bids))
+cat("\nTotal Number of NonTSS bids removing due to convolution", 
+    length(remove_bids), "(Fraction = ", length(remove_bids)/length(setdiff(bids$V4, over_filt$BidID)), ")")
+bids <- bids[!bids$V4 %in% remove_bids]
+cat("\nTotal Number of Bids remaining", length(unique(bids$V4)), "Num NonTSS", length(setdiff(bids$V4, over_filt$BidID)), "\n")
 
 
 ######################################################
@@ -335,27 +352,30 @@ if (type == "MU_COUNTS" | type == "BOTH") {
     closest <- fread(close_bid_file)
     start.time <- Sys.time()
     # get the info needed for positions
+    cat("\nUsing Count window", count_win)
     closest_list = get_info_for_calls(closest, count_win)
     # get the proper positions
     closest = get_new_pos(closest_list[[1]])
     # get the GTF lines and write them
-    gtf_lines = get_GTF_lines(closest, closest_list[[2]])
-    writeLines(gtf_lines, paste0(out_dir, prefix, "_", date, "_mucounts_", str(count_win), ".gtf"))
+    gtf_lines = get_GTF_lines(closest, closest_list[[2]], bids$V4)
+    gtf_file = paste0(out_dir, prefix, "_mucounts_", as.character(count_win), "_", date, ".gtf")
+    writeLines(gtf_lines, gtf_file)
     # now get the positive and negative forms
-    gtf <- fread(paste0(out_dir, prefix, "_mucounts_", str(count_win), "_", date ".gtf"))
+    gtf <- fread(gtf_file)
     pos_gtf = gtf[gtf$V7 %in% c(".", "+"),]
     neg_gtf = gtf[gtf$V7 %in% c(".", "-"),]
     gene_only = gtf[gtf$V3 == "gene",]
-    cat("\nNumber of regions", nrow(gene_only))
-    cat("\nNumber of duplicated regions", length(unique(gene_only$V9[duplicated(gene_only$V9)])))
-
-    write.table(pos_gtf, paste0(out_dir, prefix, "_mucounts_", str(count_win), "_", date "_pos.gtf"), 
+    cat("\nNumber of Bids in GTF", nrow(gene_only))
+    if (length(unique(gene_only$V9[duplicated(gene_only$V9)])) > 0) {
+        stop("There are duplicate regions in the GTF") }
+    cat("\nNAME OF GTF SAVED", as.character(count_win), paste0(out_dir, prefix, "_", date, "_mucounts_", as.character(count_win), "_", date, "_pos.gtf"))
+    write.table(pos_gtf, paste0(out_dir, prefix, "_mucounts_", as.character(count_win), "_", date, "_pos.gtf"), 
             quote=FALSE, sep="\t", row.names=FALSE, col.names=FALSE)
-    write.table(neg_gtf, paste0(out_dir, prefix, "_mucounts_", str(count_win), "_", date "_neg.gtf"), 
+    write.table(neg_gtf, paste0(out_dir, prefix, "_mucounts_", as.character(count_win), "_", date, "_neg.gtf"), 
             quote=FALSE, sep="\t", row.names=FALSE, col.names=FALSE)
     end.time <- Sys.time()
-    cat("\nTime to get mu based counts:")
-    print(end.time-start.time)
+    tot_time = end.time-start.time
+    cat("\nTime to get mu based counts: (minutes)", tot_time)
     }
 
 
@@ -364,7 +384,11 @@ if (type == "MU_COUNTS" | type == "BOTH") {
 ## 4. If TFEA output requested, print out ##
 ##############################################
 if (TFEA == "YES") {
-    # split up the tss and notss bids
+    if (type == "MU_COUNTS") {
+        # split up the tss and notss bids
+        colnames(bids) <- c("Chr", "Start", "End", "GeneID")
+        bids$Strand <- "+"
+        }
     tss <- bids[bids$GeneID %in% over_filt$BidID,]
     nontss <- bids[!bids$GeneID %in% over_filt$BidID,]
     cat("\nNumber total Bids after filtering:", nrow(bids), "\n\tNumber TSS:", nrow(tss), "\tNumber NonTSS:", nrow(nontss))
