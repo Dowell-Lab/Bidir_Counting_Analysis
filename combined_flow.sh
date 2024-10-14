@@ -318,7 +318,7 @@ featureCounts \
     -t "exon" \
     -a ${NEW_REG} \
     -F 'GTF' \
-    -o ${fixed_counts}/${prefix}_str_fixed_genes_${date}.txt \
+    -o ${fixed_counts}/${PREFIX}_str_fixed_genes_${DATE}.txt \
    ./*mmfilt.sorted.bam
 
 wc -l ${fixed_counts}/*
