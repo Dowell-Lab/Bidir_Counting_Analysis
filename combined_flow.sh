@@ -37,6 +37,8 @@ DATE=
 mmfiltbams=""
 crams=""
 bams=""
+# if crams then need genome
+genome=/scratch/Shares/dowell/genomes/hg38/hg38.fa
 
 ### Files
 # File with consensus regions (e.g. output from Mumerge)
@@ -84,21 +86,33 @@ if [[ -z "$mmfiltbams" ]]; then
         mkdir -p ${mmfiltbams}
         for cram in ${crams}/*.sorted.cram; do
             prefix=$(basename "$cram" | sed 's/\.sorted\.cram$//')
-            samtools view -@ 32 -b -1 -T ${genome} ${cram} | samtools view -@ 32 -h -q 1 | \
+            samtools view -@ 32 -b -1 -T ${genome} ${cram} > ${mmfiltbams}/${prefix}.bam
+            samtools markdup -@ 32 -r -s ${mmfiltbams}/${prefix}.bam ${mmfiltbams}/${prefix}_nodup.bam
+            rm ${mmfiltbams}/${prefix}.bam
+            samtools view -@ 32 -h -F 2308 -q 1 ${mmfiltbams}/${prefix}_nodup.bam | \
                grep -P '(NH:i:1|^@)' | \
-               samtools view -h -b > ${mmfiltbams}/${prefix}.mmfilt.sorted.bam
-            samtools index ${mmfiltbams}/${prefix}.mmfilt.sorted.bam ${mmfiltbams}/${prefix}.mmfilt.sorted.bam.bai
+               samtools view -@ 32 -h -b  > ${mmfiltbams}/${prefix}.mmfilt.bam
+            rm ${mmfiltbams}/${prefix}_nodup.bam
+            samtools sort -@ 32 ${mmfiltbams}/${prefix}.mmfilt.bam > ${mmfiltbams}/${prefix}.mmfilt.sorted.bam
+            rm ${mmfiltbams}/${prefix}.mmfilt.bam
+           samtools view -@ 32 -c ${mmfiltbams}/${prefix}.mmfilt.sorted.bam
+           samtools index -@ 32 ${mmfiltbams}/${prefix}.mmfilt.sorted.bam ${mmfiltbams}/${prefix}.mmfilt.sorted.bam.bai
         done
     elif [[ -n "$bams" ]]; then
         echo "Getting multi-mapped filtered bams from bams"
-        mmfiltbams=${WD}/mapped/mmfiltbams
+        mmfiltbams=${WD}/mapped/mmfiltbams_og
         mkdir -p ${mmfiltbams}
         for bam in ${bams}/*.sorted.bam; do
             prefix=$(basename "$bam" | sed 's/\.sorted\.bam$//')
-            samtools view -@ 32 -h -q 1 ${bam} | \
+            samtools markdup -@ 32 -r -s ${bam} ${bams}/${prefix}_nodup.bam
+            samtools view -@ 32 -h -F 2308 -q 1 ${bams}/${prefix}_nodup.bam | \
                grep -P '(NH:i:1|^@)' | \
-               samtools view -h -b > ${mmfiltbams}/${prefix}.mmfilt.sorted.bam
-           samtools index ${mmfiltbams}/${prefix}.mmfilt.sorted.bam ${mmfiltbams}/${prefix}.mmfilt.sorted.bam.bai
+               samtools view -@ 32 -h -b  > ${mmfiltbams}/${prefix}.mmfilt.bam
+               rm ${bams}/${prefix}_nodup.bam
+            samtools sort -@ 32 ${mmfiltbams}/${prefix}.mmfilt.bam > ${mmfiltbams}/${prefix}.mmfilt.sorted.bam
+            rm ${mmfiltbams}/${prefix}.mmfilt.bam
+           samtools view -@ 32 -c ${mmfiltbams}/${prefix}.mmfilt.sorted.bam
+           samtools index -@ 32 ${mmfiltbams}/${prefix}.mmfilt.sorted.bam ${mmfiltbams}/${prefix}.mmfilt.sorted.bam.bai
         done
     else
         echo "Need to have at least one of the variables filled: mmfiltbams, crams, bams"
@@ -133,6 +147,7 @@ TSS_WIN_FILE=${WD}/regions/${PREFIX}_${DATE}_MUMERGE_${COUNT_WIN}win_TSS.sorted.
 # NAMING THE OUTPUT FILES
 OUT_DIR=${WD}/overlaps
 mkdir -p ${OUT_DIR}
+mkdir -p ${WD}/regions
 TSS_OUT=${OUT_DIR}/overlaps_hg38_TSS1kb_withput_${PREFIX}_MUMERGE_${DATE}.bed
 COUNT_OUT=${OUT_DIR}/overlaps_hg38_withput_${PREFIX}_MUMERGE_${DATE}.bed
 DWN_OUT=${OUT_DIR}/overlaps_hg38_withput_dwnstm_${PREFIX}_MUMERGE_${DATE}.bed
