@@ -72,17 +72,17 @@ nextflow run main.nf \
 ## How it works?
 Nascent transcription occurs outside the bounds of gene annotations. Bidirectionals are often near genes and other bidirectionals, making capturing their transcription without capturing noise difficult. Therefore, this pipeline addresses these problems with the following solutions:
 1. Identify Gene TSS Bidirectionals:
-* Significance: Genes have bidirectionals at their 5' ends (often called PROMPTs). These have very different transcriptional patterns to enhancer bidirectionals and are technically part of the gene. Therefore, these bidirectionals should not be treated the same.
-* Solution: TSS bidirectionals (5' bidirectionals of genes) are identified by overlapping the bidirectionals with a small window (TSS_WIN=default=25bp) with a window around the TSS of genes (including putative) (tss_1kb_file). TSS bidirectionals are assigned so that a single gene isoform only has one TSS bidirectional with the one whose midpoint is closest to the TSS used. Two gene isoforms are allowed to share the same TSS bidirectional if their TSS are within 50bp of each other.
+* **Significance**: Genes have bidirectionals at their 5' ends (often called PROMPTs). These have very different transcriptional patterns to enhancer bidirectionals and are technically part of the gene. Therefore, these bidirectionals should not be treated the same.
+* **Solution**: TSS bidirectionals (5' bidirectionals of genes) are identified by overlapping the bidirectionals with a small window (TSS_WIN=default=25bp) with a window around the TSS of genes (including putative) (tss_1kb_file). TSS bidirectionals are assigned so that a single gene isoform only has one TSS bidirectional with the one whose midpoint is closest to the TSS used. Two gene isoforms are allowed to share the same TSS bidirectional if their TSS are within 50bp of each other.
 2. Address overlapping transcription from genes:
-* Significance: Transcription of genes continues downstream of their annotations and most enhancer bidirectionals are found within the introns of genes (whether the genes are transcribed or not).
-* Solution: Genes considered transcribed (COUNT_LIMIT_GENES=70% isoform covered with reads) and 10kb downstream of them are overlapped with nonTSS bidirectionals. TSS bidirectionals by requirement will overlap genes. Any nonTSS bidirectional overlapping gene transcription on one strand is counted according to its strand without convolution doubled. Any nonTSS bidirectional overlapping gene transcription on both strands is removed since deconvolution cannot confidently occur.
+* **Significance**: Transcription of genes continues downstream of their annotations and most enhancer bidirectionals are found within the introns of genes (whether the genes are transcribed or not).
+* **Solution**: Genes considered transcribed (COUNT_LIMIT_GENES=70% isoform covered with reads) and 10kb downstream of them are overlapped with nonTSS bidirectionals. TSS bidirectionals by requirement will overlap genes. Any nonTSS bidirectional overlapping gene transcription on one strand is counted according to its strand without convolution doubled. Any nonTSS bidirectional overlapping gene transcription on both strands is removed since deconvolution cannot confidently occur.
 3. Address overlapping transcription from bidirectionals with other bidirectionals:
-* Significance: Bidirectionals can often be close to one another so that a fixed region length captures multiple at once. However, bidirectional transcript lengths can also widely vary. 
-* Solution: Count_type=MU_COUNTS fixes this as described further in "More about Inputs and Outputs."
+* **Significance**: Bidirectionals can often be close to one another so that a fixed region length captures multiple at once. However, bidirectional transcript lengths can also widely vary. 
+* **Solution**: Count_type=MU_COUNTS fixes this as described further in "More about Inputs and Outputs."
 4. Address overlapping transcription from bidirectionals within genes:
-* Significance: Allen et al showed that differential gene expression analysis can be largely disrupted by counting capturing differences between bidirectionals within genes rather than the genes themselves.
-Solution: If get_fixed_genecounts=TRUE, the count regions of bidirectionals with reads > COUNT_LIMIT_BIDS after deconvolution are removed from gene regions over which to be counted.
+* **Significance**: Allen et al showed that differential gene expression analysis can be largely disrupted by counting capturing differences between bidirectionals within genes rather than the genes themselves.
+* **Solution**: If get_fixed_genecounts=TRUE, the count regions of bidirectionals with reads > COUNT_LIMIT_BIDS after deconvolution are removed from gene regions over which to be counted.
 
 
 ## More about Inputs and Outputs
@@ -117,19 +117,23 @@ Solution: If get_fixed_genecounts=TRUE, the count regions of bidirectionals with
     * Note: The total reads is based on ALL provided bams. 30 (default) has served well for 4-6 bams with 40M reads, but may be low if using more samples than that and high if using fewer. 
 
 ### Output 
+* mmfiltbams/ (**if savemmfiltbams**)
 * regions/
     * TSS bidirectionals: `tss_bid_${prefix}_${date}.txt`
-    * TSS bidirectionals bed (for TFEA): tss_bid_${prefix}_${date}_forTFEA.bed (**if TFEA**)
-    * NonTSS bidirectionals bed (for TFEA): nontss_bid_${prefix}_${date}_forTFEA.bed (**if TFEA**)
+    * TSS bidirectionals bed (for TFEA): `tss_bid_${prefix}_${date}_forTFEA.bed` (**if TFEA**)
+    * NonTSS bidirectionals bed (for TFEA): `nontss_bid_${prefix}_${date}_forTFEA.bed` (**if TFEA**)
 * counts/
-    * fixed counts for the genes: `${prefix}_str_fixed_genes_${date}.txt`
-    * fixed counts for the bidirectionals: `${prefix}_MUMERGE_tfit,dreg_${date}_filt.saf`
+    * fixed counts for the genes: `fixed_genes_${prefix}_${date}_counts.txt` (**if get_fixed_gene_counts**)
+    * fixed counts for the bidirectionals: `fixed_full_bid_${prefix}_${date}_counts.txt`
 
 
 
 ## Troubleshooting
 * Error about improper sorting of a bed or bam file?
     - Sometimes the bam file is sorted in a different order than the bed file (most commonly a difference of chr1, chr2, ... chr10 vs chr1, chr10, ... chr2). One of the steps uses bedtools coverage to calculate coverage of genes. The original bed file for this is "" but if the above is occuring, try using "" in --gene_put_file. This file has the chr1,chr2 ... ordering. If this still does not work, you can reorder the bed file to match the bam by using the -g option of bedtools sort where the -g refers to a file of the chromosomes in the order used in the fasta file used to produce your bam.
+ 
+## Citing
+If using this pipeline, please cite ...
 
 
 
