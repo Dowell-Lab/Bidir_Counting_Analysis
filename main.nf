@@ -444,13 +444,10 @@ process CountPutGenes {
 println "[Log 4]: Getting TSS bidirectionals and Filtered bidirectionals based on transcriptional convolution"
 println "[Log 4]: Using coverage limit of genes .... ${params.count_limit_genes}"
 
-// // Explicitly declare empty channels first
-// bidirs_saf = Channel.create()
-// pos_gtf = Channel.create()
-// neg_gtf = Channel.create()
-// uns_gtf = Channel.create()
 
-process GetTSSBidsAndGTFs {
+// PART 5: GET THE FIXED BID COUNTS
+if (params.count_type == "SIMPLE" || params.count_type == "BOTH") {
+  process GetTSSBidsAndGTFs_SIMPLE {
   
   cpus 1
   queue 'short'
@@ -482,9 +479,234 @@ process GetTSSBidsAndGTFs {
 
   output:
   file ("filt.saf") into bidirs_saf
-  // file ("pos.gtf") into pos_gtf
-  // file ("neg.gtf") into neg_gtf
-  // file ("uns.gtf") into uns_gtf
+  file ("tss_bid.txt") into tss_file
+  file ("tss_bid_forTFEA.bed") into tss_TFEA
+  file ("nontss_bid_forTFEA.bed") into nontss_TFEA
+
+
+  script:
+  """
+  #!/usr/bin/env Rscript
+  library(data.table)
+  library(stringr)
+
+  ###################################s
+  ## 1. Get the TSS Bidirectionals ##
+  ###################################
+  # read in the TSS region overlaps
+  over <- fread("${tss_out_getbids}")
+  # Get the distance between mu and TSS
+  over\$mu <- as.integer((over\$V3+over\$V2)/2)
+  over\$tss <- as.integer((over\$V6+over\$V7)/2)
+  over\$MUDIFF <- abs(over\$mu-over\$tss)
+
+  ## Get the Gene (not transcript) name
+  over\$Gene <- str_split_fixed(over\$V8, ":", 2)[,1]
+  trans_with_tss <- unique(over\$V8)
+  genes_with_tss <- unique(over\$Gene)
+
+  ## Get the TSS bidirectionals (note if hand annotation might be needed)
+  over <- data.frame(over)
+  over\$unique <- seq(1, nrow(over))
+  hand_annotate = c(); TSS_used = c(); keep <- c(); remove <- c()
+  for (isoform in trans_with_tss) {
+    # get the overlaps
+    filt = over[over\$V8 == isoform,]
+    # get the TSS with the minimum MUDIFF
+    tss = filt[filt\$MUDIFF == min(filt\$MUDIFF),]\$V4
+    #cat("\t", isoform, tss)
+    # if more than one bidirectional has the same min distance --> hand annotate (for now just keep first)
+    if (length(tss) != 1) {
+        hand_annotate = c(hand_annotate, isoform)
+        tss <- tss[1]
+    } 
+    if (tss %in% TSS_used) {
+        # if the TSS has already been assigned to a gene
+        # check the difference in MUDIFF between the two genes
+        filt2 = over[over\$V4 == tss,]
+        # if the MUDIFF of the two genes are significantly different, only keep one
+        if (max(abs(filt2\$MUDIFF))-min(abs(filt2\$MUDIFF)) > 50) {
+            keep <- c(keep, filt2[abs(filt2\$MUDIFF) == min(abs(filt2\$MUDIFF)),]\$unique)
+            remove <- c(remove, filt2[abs(filt2\$MUDIFF) == max(abs(filt2\$MUDIFF)),]\$unique)
+        } else {
+            keep <- c(keep, filt\$unique)
+        }}else {
+            keep <- c(keep, filt[filt\$V4 == tss,]\$unique)
+            }
+    TSS_used <- union(TSS_used, tss)
+        }
+
+  # only address the TSS bidirectionals clarified to keep and remove
+  over_filt <- over[over\$unique %in% keep,]
+  over_filt <- over_filt[!over_filt\$unique %in% remove,]  
+
+  # Record the numbers changed
+  trans_with_tss_filt <- unique(over_filt\$V8)
+  cat("\tOriginal # Transcripts captured:", length(trans_with_tss), "and new #:", length(trans_with_tss_filt))
+  genes_with_tss_filt <- unique(over_filt\$Gene)
+  cat("\tOriginal # Genes captured:", length(genes_with_tss), "and new #:", length(genes_with_tss_filt))
+
+  # Save the TSS bidirectionals
+  colnames(over_filt) <- c("Chr", "Bid_Start", "Bid_Stop", "BidID", "Gene_Chr", "Gene_Start", "Gene_Stop", 
+                        "TranscriptID", ".", "Strand", "Length", "mu", "TSS", "MUDIFF", "GeneID", "unique")
+  over_filt <- over_filt[,c("Chr", "Bid_Start", "Bid_Stop", "BidID", "Gene_Start", "Gene_Stop",
+             "TranscriptID", "Strand", "mu", "TSS", "GeneID")]
+
+  write.table(over_filt, paste0("tss_bid.txt"), 
+           row.names=FALSE, sep="\t", quote=FALSE)
+
+  ##############################################
+  ## 2. Filter the bids according to overlaps ##
+  ##############################################
+  # read in the overlaps of counted regions
+  count_over <- fread("${count_out_getbids}")
+  dwn_over <- fread("${dwn_out_getbids}")
+  # read in the preliminary gene counts
+  counts <- fread("${put_gene_counts_getbids}")
+  colnames(counts) <- c("chrom", "start", "stop", "Gene", "dot", "strand", "count", "cov_bases", "length", "cov_frac")
+  # ensure that the Genes and overlaps have the same Geneid format
+  counts\$Geneid <- str_split_fixed(counts\$Gene, ",", 2)[,1]
+  
+  if (length(setdiff(count_over\$V4, counts\$Geneid)) > 1) {
+    stop("There is an inconsistency in the naming between overlaps and counts")
+  }
+  # get the genes with high enough coverage to be considered transcribed
+  high_counts = counts[counts\$cov_frac > ${params.count_limit_genes},]
+  high_counts = high_counts\$Geneid
+  cat("\tNUM gene isoforms with coverage >", as.character(${params.count_limit_genes}), length(high_counts), high_counts[1:4])
+  # only consider overlaps with genes with OUT low counts
+  count_over <- count_over[count_over\$V4 %in% high_counts]
+  dwn_over <- dwn_over[dwn_over\$V4 %in% high_counts]
+    cat("\tGOT HERE 3")
+  # Split the overlaps into positive and negative strands
+  count_over_neg = count_over[count_over\$V6 == "-", ]
+  count_over_pos = count_over[count_over\$V6 == "+", ]
+  dwn_over_neg = dwn_over[dwn_over\$V6 == "-", ]
+  dwn_over_pos = dwn_over[dwn_over\$V6 == "+", ]
+
+  # Get the NONTSS overlapping on one strand strands
+  bid_pos_conflict <- setdiff(union(count_over_pos\$V10, dwn_over_pos\$V10), tss)
+  bid_neg_conflict <- setdiff(union(count_over_neg\$V10, dwn_over_neg\$V10), tss)
+  remove_bids = intersect(bid_pos_conflict, bid_neg_conflict)
+
+  cat("\tTotal Number of NonTSS bids removing due to overlapping transcribed genes on both strands", 
+    length(remove_bids))
+  
+  # read in the original bids
+  bids <- fread("${count_win_file_getbids}")
+  cat("\tTotal Number of NonTSS bids removing due to convolution", 
+      length(remove_bids), "(Fraction = ", length(remove_bids)/length(setdiff(bids\$V4, over_filt\$BidID)), ")")
+  bids <- bids[!bids\$V4 %in% remove_bids]
+  cat("\tTotal Number of Bids remaining", length(unique(bids\$V4)), "Num NonTSS", length(setdiff(bids\$V4, over_filt\$BidID)), "\t")
+
+  
+  ######################################################
+  ## 3. Get the counting files for the remaining bids ##
+  ######################################################
+  type="${params.count_type}"
+  ### SIMPLE SAF ACCORDING TO FIXED WINDOW LENGTH
+  if (type == "SIMPLE" | type == "BOTH") {
+      # save the remaining bids as a saf file
+      colnames(bids) <- c("Chr", "Start", "End", "GeneID")
+      bids\$Strand <- "+"
+      bids[1:2,]
+      write.table(bids[,c("GeneID", "Chr", "Start", "End", "Strand")], 
+                  "filt.saf",
+                quote=FALSE, sep="\t", row.names=FALSE)
+      } 
+  ##############################################
+  ## 4. If TFEA output requested, print out ##
+  ##############################################
+  if ("${params.tfea}" == "TRUE") {
+    prefix = "${params.prefix}"
+    date = "${params.date}"
+      if (type == "MU_COUNTS") {
+          # split up the tss and notss bids
+          colnames(bids) <- c("Chr", "Start", "End", "GeneID")
+          bids\$Strand <- "+"
+          }
+      tss <- bids[bids\$GeneID %in% over_filt\$BidID,]
+      nontss <- bids[!bids\$GeneID %in% over_filt\$BidID,]
+      cat("\tNumber total Bids after filtering:", nrow(bids), "\t\tNumber TSS:", nrow(tss), "\tNumber NonTSS:", nrow(nontss))
+      # save
+      write.table(tss[,c("Chr", "Start", "End", "GeneID")], 
+              "tss_bid_forTFEA.bed",
+            quote=FALSE, sep="\t", row.names=FALSE, col.names=FALSE)
+      write.table(nontss[,c("Chr", "Start", "End", "GeneID")], 
+              "nontss_bid_forTFEA.bed",
+            quote=FALSE, sep="\t", row.names=FALSE, col.names=FALSE)
+      print("Got TFEA Bids")
+      } else {
+        print("NOT GETTING TFEA FILES")
+      }
+  """
+}
+
+  process SimpleFixCounts {
+    println "[Log 5]: Getting fixed bidirectional counts using Simple window ${params.count_win}"
+
+    cpus 16
+    queue 'short'
+    memory '10 GB'
+    time '3h'
+    tag "$prefix"
+
+    input:
+    file ('*') from sorted_mmfilt_bam_file_bidcount.collect()
+    file bidirs_saf
+
+    output:
+    file ("uns_bidirs.txt") into uns_bidir_counts
+    file ("pos_bidirs.txt") into pos_bidir_counts
+    file ("neg_bidirs.txt") into neg_bidir_counts
+
+    script:
+    """
+    #!/bin/bash
+    # count in an unstranded manner
+    featureCounts -T 16 -O -s 0 -a ${bidirs_saf} -F 'SAF' -o uns_bidirs.txt ./mmfiltbams/*.bam 
+    # count on positive strand
+    featureCounts -T 16 -O -s 1 -a ${bidirs_saf} -F 'SAF' -o pos_bidirs.txt ./mmfiltbams/*.bam 
+    # count on negative strand
+    featureCounts -T 16 -O -s 2 -a ${bidirs_saf} -F 'SAF' -o neg_bidirs.txt ./mmfiltbams/*.bam 
+    """
+  }
+} 
+if (params.count_type == "MU_COUNTS" || params.count_type == "BOTH") {
+  process GetTSSBidsAndGTFs_MUCOUNTS {
+  
+  cpus 1
+  queue 'short'
+  memory '5 GB'
+  time '10h'
+  tag "$prefix"
+
+  publishDir "${params.outdir}/regions/", mode: 'copy',
+    saveAs: { filename ->
+        if (filename == "tss_bid.txt") { 
+            return "tss_bid_${params.prefix}_${params.date}.txt" 
+        } else if (filename == "tss_bid_forTFEA.bed") { 
+            return "tss_bid_${params.prefix}_${params.date}_forTFEA.bed" 
+        } else if (filename == "nontss_bid_forTFEA.bed") { 
+            return "nontss_bid_${params.prefix}_${params.date}_forTFEA.bed" 
+        } else { 
+            return null 
+        }
+    }
+
+  input:
+  file tss_out_getbids
+  file count_out_getbids
+  file dwn_out_getbids
+  file count_trunc_out_getbids
+  file close_out_getbids
+  file count_win_file_getbids
+  file put_gene_counts_getbids
+
+  output:
+  file ("pos.gtf") into pos_gtf
+  file ("neg.gtf") into neg_gtf
+  file ("uns.gtf") into uns_gtf
   file ("tss_bid.txt") into tss_file
   file ("tss_bid_forTFEA.bed") into tss_TFEA
   file ("nontss_bid_forTFEA.bed") into nontss_TFEA
@@ -807,16 +1029,6 @@ get_GTF_lines <- function(close_df, orig_close_df, bids_keep) {
   ## 3. Get the counting files for the remaining bids ##
   ######################################################
   type="${params.count_type}"
-  ### SIMPLE SAF ACCORDING TO FIXED WINDOW LENGTH
-  if (type == "SIMPLE" | type == "BOTH") {
-      # save the remaining bids as a saf file
-      colnames(bids) <- c("Chr", "Start", "End", "GeneID")
-      bids\$Strand <- "+"
-      bids[1:2,]
-      write.table(bids[,c("GeneID", "Chr", "Start", "End", "Strand")], 
-                  "filt.saf",
-                quote=FALSE, sep="\t", row.names=FALSE)
-      } 
   ### MU based counts
   if (type == "MU_COUNTS" | type == "BOTH") {
       # read in the closest bids overlapping file
@@ -871,39 +1083,6 @@ get_GTF_lines <- function(close_df, orig_close_df, bids_keep) {
       }
   """
 }
-
-// PART 5: GET THE FIXED BID COUNTS
-if (params.count_type == "SIMPLE" || params.count_type == "BOTH") {
-  process SimpleFixCounts {
-    println "[Log 5]: Getting fixed bidirectional counts using Simple window ${params.count_win}"
-
-    cpus 16
-    queue 'short'
-    memory '10 GB'
-    time '3h'
-    tag "$prefix"
-
-    input:
-    file ('*') from sorted_mmfilt_bam_file_bidcount.collect()
-    file bidirs_saf
-
-    output:
-    file ("uns_bidirs.txt") into uns_bidir_counts
-    file ("pos_bidirs.txt") into pos_bidir_counts
-    file ("neg_bidirs.txt") into neg_bidir_counts
-
-    script:
-    """
-    #!/bin/bash
-    # count in an unstranded manner
-    featureCounts -T 16 -O -s 0 -a ${bidirs_saf} -F 'SAF' -o uns_bidirs.txt ./mmfiltbams/*.bam 
-    # count on positive strand
-    featureCounts -T 16 -O -s 1 -a ${bidirs_saf} -F 'SAF' -o pos_bidirs.txt ./mmfiltbams/*.bam 
-    # count on negative strand
-    featureCounts -T 16 -O -s 2 -a ${bidirs_saf} -F 'SAF' -o neg_bidirs.txt ./mmfiltbams/*.bam 
-    """
-  }
-} else {
   process MuCounts {
     println "[Log 5]: Getting fixed bidirectional counts using MU_counts and original window ${params.count_win}"
 
@@ -935,7 +1114,10 @@ if (params.count_type == "SIMPLE" || params.count_type == "BOTH") {
     featureCounts -T 16 -O -s 1 -a ${neg_gtf} -t "exon" -F "GTF" -o neg_bidirs.txt ./mmfiltbams/*.bam 
     """
   }
+
+  
 }
+
 process FixCounts {
   cpus 1
   queue 'short'
@@ -958,7 +1140,7 @@ process FixCounts {
 
   publishDir "${params.outdir}/counts/" , mode: 'copy',
         saveAs: {filename ->
-              if ((filename == "full_bidir_counts.txt"))   
+              if ((filename == "full_bidir_counts.txt") & (params.))   
                {return "fixed_full_bid_${params.prefix}_${params.date}_counts.txt"} else { return null }
              }
 
