@@ -33,4 +33,5 @@ NXF_DEBUG=1 /scratch/Shares/dowell/dbnascent/pipeline_assets/nextflow run /Users
  -work-dir ${work_dir} \
  --outdir /scratch/Users/hoto7260/nextflow_out/Bidir_Count/Test/ \
  --prefix Testing \
- --date 2.10.25 
+ --date 2.10.25 \
+ --count_type "SIMPLE"

@@ -130,7 +130,7 @@ Nascent transcription occurs outside the bounds of gene annotations. Bidirection
 
 ## Troubleshooting
 * Error about improper sorting of a bed or bam file?
-    - Sometimes the bam file is sorted in a different order than the bed file (most commonly a difference of chr1, chr2, ... chr10 vs chr1, chr10, ... chr2). One of the steps uses bedtools coverage to calculate coverage of genes. The original bed file for this is "" but if the above is occuring, try using "" in --gene_put_file. This file has the chr1,chr2 ... ordering. If this still does not work, you can reorder the bed file to match the bam by using the -g option of bedtools sort where the -g refers to a file of the chromosomes in the order used in the fasta file used to produce your bam.
+    - Sometimes the bam file is sorted in a different order than the bed file (most commonly a difference of chr1, chr2, ... chr10 vs chr1, chr10, ... chr2). One of the steps uses bedtools coverage to calculate coverage of genes. The default bed file for this is "assets/hg38_refseq_diff53prime_with_putatives_fixnames.sorted.bed" but if the above is occuring, try using "assets/hg38_refseq_diff53prime_with_putatives_fixnames_sort2.sorted.bed" in --gene_put_file. This file has the chr1,chr2 ... ordering. If this still does not work, you can reorder the bed file to match the bam by using the -g option of bedtools sort where the -g refers to a file of the chromosomes in the order used in the fasta file used to produce your bam.
  
 ## Citing
 If using this pipeline, please cite ...

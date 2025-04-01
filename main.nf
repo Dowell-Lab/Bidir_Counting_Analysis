@@ -22,8 +22,6 @@
  * =============
  * Hope A. Townsend : hope.townsend@colorado.edu
  */
-nextflow.enable.dsl=1
-nextflow.enable.dsl=2
 // HELP MESSAGE
 def helpMessage() {
     log.info"""
@@ -32,12 +30,12 @@ def helpMessage() {
     =========================================
     Usage:
     The typical command for running the pipeline is as follows:
-    nextflow run main.nf --cons_file '/project/regions.bed' --bams '/project/*.sorted.bam' --workdir '/project/tempfiles' --outdir '/project/'
+    nextflow run main.nf --cons_file '/project/regions.bed' --bams '/project/bams/ --workdir '/project/tempfiles' --outdir '/project/'
     Required arguments:
         --cons_file                   bed file with consensus bidirectionals/tREs of interest where the midpoint of the 2nd & 3rd columns is closest to mu (often with muMerge)
         --mmfiltbams                  Directory pattern for multimap filtered bams: /project/*.mmfilt.sorted.bam (Required if --bams or --crams not specified).
-        --crams                       Directory pattern for cram files: /project/*.sorted.cram (Required if --mmfiltbams or --bams not specified).
-        --bams                        Directory pattern for bam files: /project/*.sorted.bam (Required if --mmfiltbams or --crams not specified).
+        --crams                       Directory pattern for cram files: /project/crams/ (Required if --mmfiltbams or --bams not specified).
+        --bams                        Directory pattern for bam files: /project/bams/ (Required if --mmfiltbams or --crams not specified).
         --workdir                     Nextflow working directory where all intermediate files are saved.
 
     Save options:
@@ -201,12 +199,18 @@ if (params.crams) {
     println "[Log 1]: Converting CRAM files to Multi-mapped filtered BAM FILES"
     println "[Log 1]: Genome file being used ..... $params.genome "
     println "[Log 1]: Cram file directory ........ $params.crams"
-    println "[Log 1]: Working directory ... $params.workdir"
+    println "[Log 1]: Working directory ... $workflow.workDir"
     println "[Log 1]: Output directory ... $params.outdir"
+    
 
-    cramfiles = Channel 
-                .fromPath(params.crams) 
-                .map { file -> tuple((file.simpleName + '.sorted'), file)}
+    
+
+    cramfiles = Channel
+                  .fromPath("${params.crams}/*.sorted.cram")
+                  .map { file -> tuple(file.baseName.replace('.sorted', ''), file) }
+
+
+    //cramfiles.view()
 
     process cram_to_mmfiltbam {
       cpus 16
@@ -221,15 +225,12 @@ if (params.crams) {
               else null
              }
       input:
-      tuple val(prefix), file(cram) from cramfiles
+        tuple val(prefix), file(cram) from cramfiles
 
       output:
-      tuple val(prefix), file("${prefix}.mmfilt.sorted.bam"), file("${prefix}.mmfilt.sorted.bam.bai") into 
-      sorted_mmfilt_bam_file_genecount
-      tuple val(prefix), file("${prefix}.mmfilt.sorted.bam"), file("${prefix}.mmfilt.sorted.bam.bai") into 
-      sorted_mmfilt_bam_file_bidcount
-      tuple val(prefix), file("${prefix}.mmfilt.sorted.bam"), file("${prefix}.mmfilt.sorted.bam.bai") into 
-      sorted_mmfilt_bam_file_fingenecount
+        tuple val(prefix), file("${prefix}.mmfilt.sorted.bam"), file("${prefix}.mmfilt.sorted.bam.bai") into sorted_mmfilt_bam_file_genecount
+        tuple val(prefix), file("${prefix}.mmfilt.sorted.bam"), file("${prefix}.mmfilt.sorted.bam.bai") into sorted_mmfilt_bam_file_bidcount
+        tuple val(prefix), file("${prefix}.mmfilt.sorted.bam"), file("${prefix}.mmfilt.sorted.bam.bai") into sorted_mmfilt_bam_file_fingenecount
 
       script:
       """
@@ -240,15 +241,18 @@ if (params.crams) {
       samtools index ${prefix}.mmfilt.sorted.bam ${prefix}.mmfilt.sorted.bam.bai
       """
     }
+
+
+    
 } else if (params.bams) {
     println "[Log 1]: Converting sorted BAM files to Multi-mapped filtered BAM FILES"
     println "[Log 1]: Bam file directory ........ $params.bams"
-    println "[Log 1]: Working directory ... $params.workdir"
+    println "[Log 1]: Working directory ... $workflow.workDir"
     println "[Log 1]: Output directory ... $params.outdir"
 
-    bamfiles = Channel 
-            .fromPath(params.bams) 
-            .map { file -> tuple((file.simpleName + '.sorted'), file)}
+    cramfiles = Channel
+                  .fromPath("${params.bams}/*.sorted.bam")
+                  .map { file -> tuple(file.baseName.replace('.sorted', ''), file) }
 
     process bam_to_mmfiltbam {
         cpus 16
@@ -436,7 +440,15 @@ process CountPutGenes {
     
   script:
   """
-  bedtools coverage -s -sorted -a ${params.gene_put_file} -b ./mmfiltbams/*.bam > put_gene_counts.txt
+  # Get the genome file to use (order of chromosomes)
+  #cut --fields=1 ${params.gene_put_file} | uniq > chrom_order.txt
+  #bedtools coverage -s -sorted -g chrom_order.txt -a ${params.gene_put_file} -b ./*mmfilt.sorted.bam > put_gene_counts.txt
+    if [ -d "mmfiltbams" ]; then
+        bedtools coverage -s -a ${params.gene_put_file} -b ./mmfiltbams/*.bam > put_gene_counts.txt
+    else
+        bedtools coverage -s -a ${params.gene_put_file} -b ./*mmfilt.sorted.bam > put_gene_counts.txt
+    fi
+  
   """
 }
 
@@ -663,12 +675,22 @@ if (params.count_type == "SIMPLE" || params.count_type == "BOTH") {
     script:
     """
     #!/bin/bash
-    # count in an unstranded manner
-    featureCounts -T 16 -O -s 0 -a ${bidirs_saf} -F 'SAF' -o uns_bidirs.txt ./mmfiltbams/*.bam 
-    # count on positive strand
-    featureCounts -T 16 -O -s 1 -a ${bidirs_saf} -F 'SAF' -o pos_bidirs.txt ./mmfiltbams/*.bam 
-    # count on negative strand
-    featureCounts -T 16 -O -s 2 -a ${bidirs_saf} -F 'SAF' -o neg_bidirs.txt ./mmfiltbams/*.bam 
+    if [ -d "mmfiltbams" ]; then
+        # count in an unstranded manner
+        featureCounts -T 16 -O -s 0 -a ${bidirs_saf} -F 'SAF' -o uns_bidirs.txt ./mmfiltbams/*.bam 
+        # count on positive strand
+        featureCounts -T 16 -O -s 1 -a ${bidirs_saf} -F 'SAF' -o pos_bidirs.txt ./mmfiltbams/*.bam 
+        # count on negative strand
+        featureCounts -T 16 -O -s 2 -a ${bidirs_saf} -F 'SAF' -o neg_bidirs.txt ./mmfiltbams/*.bam
+    else
+        # count in an unstranded manner
+        featureCounts -T 16 -O -s 0 -a ${bidirs_saf} -F 'SAF' -o uns_bidirs.txt ./*mmfilt.sorted.bam  
+        # count on positive strand
+        featureCounts -T 16 -O -s 1 -a ${bidirs_saf} -F 'SAF' -o pos_bidirs.txt ./*mmfilt.sorted.bam  
+        # count on negative strand
+        featureCounts -T 16 -O -s 2 -a ${bidirs_saf} -F 'SAF' -o neg_bidirs.txt ./*mmfilt.sorted.bam 
+    fi
+     
     """
   }
 } 
@@ -1106,12 +1128,24 @@ get_GTF_lines <- function(close_df, orig_close_df, bids_keep) {
     script:
     """
     #!/bin/bash
-    # count on both strands
-    featureCounts -T 16 -O -s 1 -a ${uns_gtf} -t "exon" -F "GTF" -o str_bidirs.txt ./mmfiltbams/*.bam 
-    # count only on positive strand
-    featureCounts -T 16 -O -s 1 -a ${pos_gtf} -t "exon" -F "GTF" -o pos_bidirs.txt ./mmfiltbams/*.bam 
-    # count only on negatve strand
-    featureCounts -T 16 -O -s 1 -a ${neg_gtf} -t "exon" -F "GTF" -o neg_bidirs.txt ./mmfiltbams/*.bam 
+
+    if [ -d "mmfiltbams" ]; then
+        # count on both strands
+        featureCounts -T 16 -O -s 1 -a ${uns_gtf} -t "exon" -F "GTF" -o str_bidirs.txt ./mmfiltbams/*.bam 
+        # count only on positive strand
+        featureCounts -T 16 -O -s 1 -a ${pos_gtf} -t "exon" -F "GTF" -o pos_bidirs.txt ./mmfiltbams/*.bam 
+        # count only on negatve strand
+        featureCounts -T 16 -O -s 1 -a ${neg_gtf} -t "exon" -F "GTF" -o neg_bidirs.txt ./mmfiltbams/*.bam 
+    else
+        # count on both strands
+        featureCounts -T 16 -O -s 1 -a ${uns_gtf} -t "exon" -F "GTF" -o str_bidirs.txt ./*mmfilt.sorted.bam  
+        # count only on positive strand
+        featureCounts -T 16 -O -s 1 -a ${pos_gtf} -t "exon" -F "GTF" -o pos_bidirs.txt ./*mmfilt.sorted.bam  
+        # count only on negatve strand
+        featureCounts -T 16 -O -s 1 -a ${neg_gtf} -t "exon" -F "GTF" -o neg_bidirs.txt ./*mmfilt.sorted.bam 
+    fi
+        
+    
     """
   }
 
@@ -1140,7 +1174,7 @@ process FixCounts {
 
   publishDir "${params.outdir}/counts/" , mode: 'copy',
         saveAs: {filename ->
-              if ((filename == "full_bidir_counts.txt") & (params.))   
+              if ((filename == "full_bidir_counts.txt"))   
                {return "fixed_full_bid_${params.prefix}_${params.date}_counts.txt"} else { return null }
              }
 
@@ -1290,8 +1324,14 @@ if (params.get_fixed_genecounts == "TRUE") {
 
     script:
     """
-    featureCounts \
-       -T 16 -O -s 1 -a ${count_gene_regions} -t "exon" -F "GTF" -o fixed_str_genes.txt ./mmfiltbams/*.bam 
+    if [ -d "mmfiltbams" ]; then
+        featureCounts \
+       -T 16 -O -s 1 -a ${count_gene_regions} -t "exon" -F "GTF" -o fixed_str_genes.txt ./mmfiltbams/*.bam  
+    else
+        featureCounts \
+       -T 16 -O -s 1 -a ${count_gene_regions} -t "exon" -F "GTF" -o fixed_str_genes.txt ./*mmfilt.sorted.bam          
+    fi
+    
     """
   }
 }
