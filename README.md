@@ -1,5 +1,5 @@
 # Bidir_Counting_Analysis
-This repository is a generalizable pipeline for getting bidirectional and gene counts from Nascent sequencing data while accounting for overlapping transcription, and the different transcriptional patterns of gene 5prime bidirectionals and enhancers. Details of the pipeline can be found in "How it Works."
+This repository is a generalizable pipeline for getting bidirectional and gene counts from Nascent sequencing data while accounting for overlapping transcription, and the different transcriptional patterns of gene 5prime bidirectionals and enhancers. The counts (suggested) or combined files can also be fed directly into [TFEA](https://github.com/Dowell-Lab/TFEA). Details of the pipeline can be found in "How it Works." 
 
 ## Requirements:
 * Nextflow (version >= 19.10.0, but the latest versions also appear to cause difficulties) You can easily run an older version of nextflow without reinstalling by specifying in the nextflow command, i.e. NXF_VER=19.10.0 nextflow run ...
@@ -10,12 +10,12 @@ This repository is a generalizable pipeline for getting bidirectional and gene c
     * data.table
     * stringR
     * If on a supercomputer (e.g. Fiji), you can get data.table and stringR installed by *interactively* running the code below. You'll get an alert that the opt/R is not writable so it must install data.table into a personal R directory that it will store in a location it provides (usually ~/R/x86_64-pc-linux-gnu-library or some variation). You can say YES to this. From now on, when you install packages, they will be stored here.
- ```
-module load R/4.4.0
-R
->install.packages("data.table")
->install.packages("stringR")
-```
+        ```
+        module load R/4.4.0
+        R
+        >install.packages("data.table")
+        >install.packages("stringR")
+        ```
 * python >3 (3.6 & 3.9 tested)
     * pandas (2.2.2 tested with python 3.9)
     * numpy (1.26.5 tested with python 3.9)
@@ -24,7 +24,7 @@ R
 -------------------------------------------------------------
 ## Running Bidir_Counting_Flow
 ### Usage
-* **Note**: -work-dir is a nextflow argument, not main.nf argument, hence make sure it is donw with -work-dir (not --work-dir) otherwise, it will create a working directory in the folder where you run the command
+* **Note**: -work-dir is a nextflow argument, not main.nf argument, hence make sure it is done as -work-dir (not --work-dir). Otherwise, it will create a working directory in the folder where you run the command.
 ```
 nextflow run main.nf \
  --mmfiltbams path/to/mmfiltbams \
@@ -38,50 +38,103 @@ nextflow run main.nf \
 
 ### Arguments
 ```
-    Required arguments:
-        --cons_file                   bed file with consensus bidirectionals/tREs of interest where the midpoint of the 2nd & 3rd columns is closest to mu (often with muMerge)
-        --mmfiltbams                  Directory pattern for multimap filtered bams: /project/*.mmfilt.sorted.bam (Required if --bams or --crams not specified).
-        --crams                       Directory pattern for cram files: /project/*.sorted.cram (Required if --mmfiltbams or --bams not specified).
-        --bams                        Directory pattern for bam files: /project/*.sorted.bam (Required if --mmfiltbams or --crams not specified).
-        -workdir                     Working directory where all intermediate files are saved by Nextflow. (You'll probably want to clear this after running everything with no errors)
+Required arguments:
+    --cons_file                   bed file with consensus bidirectionals/tREs of interest where the midpoint of the 2nd & 3rd columns is closest to mu (often with muMerge)
+    --mmfiltbams                  Directory pattern for multimap filtered bams: /project/*.mmfilt.sorted.bam (Required if --bams or --crams not specified).
+    --crams                       Directory pattern for cram files: /project/*.sorted.cram (Required if --mmfiltbams or --bams not specified).
+    --bams                        Directory pattern for bam files: /project/*.sorted.bam (Required if --mmfiltbams or --crams not specified
+    -workdir                     Working directory where all intermediate files are saved by Nextflow. (You'll probably want to clear this after running everything with no errors)
 
-    Save options:
-        --outdir                       Specifies where to save the output from the nextflow run.
-        --prefix                       Prefix used in output files (default = "count_project")  
-        --savemmfiltbams               Saves multimapped read filtered bamfiles used for tfit (default 'TRUE')
-        --date                         added to prefix in output files
-        --tfea                         If you want the TSS and NonTSS bidirectionals separated and in a format to be provided to TFEA as a combined_file, this should be "TRUE" (default="TRUE").
+Save options:
+    --outdir                       Specifies where to save the output from the nextflow run.
+    --prefix                       Prefix used in output files (default = "count_project")  
+    --savemmfiltbams               Saves multimapped read filtered bamfiles used for tfit (default 'TRUE')
+    --date                         added to prefix in output files
+    --tfea                         If you want the TSS and NonTSS bidirectionals separated and in a format to be provided to TFEA as a combined_file, this should be "TRUE" (default="TRUE").
 
-    Analysis Options:
-        --make_names                   If the cons_file does NOT have a column 4 with the names, a unique name will be added for each feature (default="YES")
-        --count_type                   Type of counting done for bidirectionals (more info on README). Options = "SIMPLE", "MU_COUNTS", "BOTH" (default="MU_COUNTS")
-        --count_win                    Window added from mu to consider for initial counting of bidirectionals (so if 1000 --> 2000bp region) (default=1000)
-        --tss_win                      Window added from mu to overlap bidirectionals with gene TSS windows to identify 5' gene bidirectionals (default=25)
-        --count_limit_genes            Minimum coverage (fraction of gene covered by reads) required to consider a gene transcribed and possibly convoluting transcription (default=0.7)
-        --count_limit_bids             Minimum total counts summed from all samples required to consider a bidirectional possibly convoluting gene transcription (default=30)
-        --get_fixed_genecounts         Whether or not you want to get counts for genes after removing strongly transcribed bidirectionals overlapping genes
+Analysis Options:
+    --make_names                   If the cons_file does NOT have a column 4 with the names, a unique name will be added for each feature (default="YES")
+    --count_type                   Type of counting done for bidirectionals (more info on README). Options = "SIMPLE", "MU_COUNTS", "BOTH" (default="MU_COUNTS")
+    --count_win                    Window added from mu to consider for initial counting of bidirectionals (so if 1000 --> 2000bp region) (default=1000)
+    --tss_win                      Window added from mu to overlap bidirectionals with gene TSS windows to identify 5' gene bidirectionals (default=25)
+    --count_limit_genes            Minimum coverage (fraction of gene covered by reads) required to consider a gene transcribed and possibly convoluting transcription (default=0.7)
+    --count_limit_bids             Minimum total counts summed from all samples required to consider a bidirectional possibly convoluting gene transcription (default=30)
+    --get_fixed_genecounts         Whether or not you want to get counts for genes after removing strongly transcribed bidirectionals overlapping genes
 
-    Files to Use (with Defaults):
-        --genome                       Only needed if --crams is used (default is /scratch/Shares/dowell/genomes/hg38/hg38.fa)
-        --tss_1kb_file                 sorted bed file with 500bp region +/- around TSS of all genes (including putatives) (Default in assets of github repo)
-        --gene_put_file                sorted bed file of all gene isoforms (Default in assets of github repo)
-        --gene_put_10kbdntm_file       sorted bed file of the termination site of gene isoforms to 10kb downstream (Default in assets of github repo)
-        --gene_count_file              sorted bed file of 5prime truncated genes over which you want to count
+Files to Use (with Defaults):
+    --genome                       Only needed if --crams is used (default is /scratch/Shares/dowell/genomes/hg38/hg38.fa)
+    --tss_1kb_file                 sorted bed file with 500bp region +/- around TSS of all genes (including putatives) (Default in assets of github repo)
+    --gene_put_file                sorted bed file of all gene isoforms (Default in assets of github repo)
+    --gene_put_10kbdntm_file       sorted bed file of the termination site of gene isoforms to 10kb downstream (Default in assets of github repo)
+    --gene_count_file              sorted bed file of 5prime truncated genes over which you want to count
+```
+
+### Example Run on Fiji
+```
+#!/bin/bash
+#SBATCH --job-name=BidirCountFlow_WSP
+#SBATCH --output=/scratch/Users/hoto7260/nextflow_out/Bidir_Count/e_and_o/UWA_%j.out
+#SBATCH --error=/scratch/Users/hoto7260/nextflow_out/Bidir_Count/e_and_o/UWA_%j.out
+#SBATCH --time=24:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --mem=1G
+#SBATCH --partition highmem
+#SBATCH --mail-type=FAIL,END
+#SBATCH --mail-user=hoto7260@colorado.edu
+
+module load samtools/1.8
+module load bedtools/2.28.0
+module load openmpi/1.6.4
+module load gcc/7.1.0
+module load subread/1.6.2
+module load R/4.4.0
+
+source activate /Users/hoto7260/miniconda3/envs/python39
+# python 3.9.17
+# numpy  1.25.2
+# pandas 2.0.3
+ 
+ ## Clear the wokring directory
+ work_dir=/scratch/Users/hoto7260/nextflow_out/Bidir_Count/tmp
+ rm -rf ${work_dir}
+ 
+ ## Run your code
+/scratch/Shares/dowell/dbnascent/pipeline_assets/nextflow run /Users/hoto7260/src/Bidir_Counting_Analysis/main.nf \
+ --crams "/scratch/Users/hoto7260/nextflow_out/Nascent/ADP_smAECs_03-4-24/mapped/crams/" \
+ --cons_file /Users/hoto7260/projects/Resp_Env/Comb_UPM_WSP_ADP/mumerge/out/UPM_WSP_ADP_tfit_MUMERGE.bed \
+ -work-dir ${work_dir} \
+ --outdir /scratch/Users/hoto7260/Resp_Env/Comb_UPM_WSP_ADP/ADP \
+ --prefix CUWA_ADP \
+ --date 3.26.25 \
+ --count_type "MU_COUNTS" \
+ --count_limit_bids 60 \
+ --gene_put_file /Users/hoto7260/src/Bidir_Counting_Analysis/assets/hg38_refseq_diff53prime_with_putatives_fixnames_sort2.sorted.bed
 ```
 
 ## How it works?
+![screenshot](README_figs/MU_Counts_Pipeline_biorender.png)
+
 Nascent transcription occurs outside the bounds of gene annotations. Bidirectionals are often near genes and other bidirectionals, making capturing their transcription without capturing noise difficult. Therefore, this pipeline addresses these problems with the following solutions:
-1. Identify Gene TSS Bidirectionals:
+
+1 . Filtering Inputs:
+* **Significance**: Remove bidirectionals that are likely called due to technical noise
+* **Solution**: muMerge lengths correspond mostly to confidence intervals around mu (slightly length of calls as well). Therefore if the confidence interval is above 3.5kb, we remove the call.
+
+2 . Identify Gene TSS Bidirectionals:
 * **Significance**: Genes have bidirectionals at their 5' ends (often called PROMPTs). These have very different transcriptional patterns to enhancer bidirectionals and are technically part of the gene. Therefore, these bidirectionals should not be treated the same.
 * **Solution**: TSS bidirectionals (5' bidirectionals of genes) are identified by overlapping the bidirectionals with a small window (TSS_WIN=default=25bp) with a window around the TSS of genes (including putative) (tss_1kb_file). TSS bidirectionals are assigned so that a single gene isoform only has one TSS bidirectional with the one whose midpoint is closest to the TSS used. Two gene isoforms are allowed to share the same TSS bidirectional if their TSS are within 50bp of each other.
-2. Address overlapping transcription from genes:
+
+3A. Address overlapping transcription from genes:
 * **Significance**: Transcription of genes continues downstream of their annotations and most enhancer bidirectionals are found within the introns of genes (whether the genes are transcribed or not).
 * **Solution**: Genes considered transcribed (COUNT_LIMIT_GENES=70% isoform covered with reads) and 10kb downstream of them are overlapped with nonTSS bidirectionals. TSS bidirectionals by requirement will overlap genes. Any nonTSS bidirectional overlapping gene transcription on one strand is counted according to its strand without convolution doubled. Any nonTSS bidirectional overlapping gene transcription on both strands is removed since deconvolution cannot confidently occur.
-3. Address overlapping transcription from bidirectionals with other bidirectionals:
+
+3B. Address overlapping transcription from bidirectionals with other bidirectionals:
 * **Significance**: Bidirectionals can often be close to one another so that a fixed region length captures multiple at once. However, bidirectional transcript lengths can also widely vary. 
-* **Solution**: Count_type=MU_COUNTS fixes this as described further in "More about Inputs and Outputs."
-4. Address overlapping transcription from bidirectionals within genes:
-* **Significance**: Allen et al showed that differential gene expression analysis can be largely disrupted by counting capturing differences between bidirectionals within genes rather than the genes themselves.
+* **Solution**: Count_type="MU_COUNTS" (default) fixes this as described further in "More about Inputs and Outputs."
+
+4 . Address overlapping transcription from bidirectionals within genes:
+* **Significance**: [Azofeifa et al](https://ieeexplore.ieee.org/abstract/document/7393555) showed that differential gene expression analysis can be largely disrupted by counting capturing differences between bidirectionals within genes rather than the genes themselves.
 * **Solution**: If get_fixed_genecounts=TRUE, the count regions of bidirectionals with reads > COUNT_LIMIT_BIDS after deconvolution are removed from gene regions over which to be counted.
 
 
@@ -94,11 +147,11 @@ Nascent transcription occurs outside the bounds of gene annotations. Bidirection
 
 ### Analysis Options
 * **COUNT_TYPE** = string to refer to the type of counting method you want (options are "SIMPLE", "MU_COUNTS", or "BOTH" and are described below):
-     * The "SIMPLE" approach uses a fixed window (COUNT_WIN) around the centers of the consensus regions providing without worrying about neighboring bidirectionals, and considering the entire region for positive and negative counts (doesn't split into transcripts).
-     * The "MU_COUNTS" approach uses a fixed window (COUNT_WIN) for the region of the tRE BUT has two additions (Image below to help visualize):
-          1) Considers overlapping regions: If a fixed counting window means the given regions are now overlapping, the neighboring tREs will be counted so that the maximum distance of a transcript is to the middle (mu) of the nearest neighboring tRE.
-          2) Considers transcripts of each region separately: Assuming each consensus region is a bidirectional (transcripts from both strands originating at the middle of the region (mu), we then count each transcript separate from one another. This allows more exact deconvolution of overlapping bidirectionals while maintaining as much data as possible.
-      * The "BOTH" option provides the counts and regions files for both of these methods.
+    * The "SIMPLE" approach uses a fixed window (COUNT_WIN) around the centers of the consensus regions providing without worrying about neighboring bidirectionals, and considering the entire region for positive and negative counts (doesn't split into transcripts).
+    * The "MU_COUNTS" approach uses a fixed window (COUNT_WIN) for the region of the tRE BUT has two additions (Image below to help visualize):
+        1) Considers overlapping regions: If a fixed counting window means the given regions are now overlapping, the neighboring tREs will be counted so that the maximum distance of a transcript is to the middle (mu) of the nearest neighboring tRE.
+        2) Considers transcripts of each region separately: Assuming each consensus region is a bidirectional (transcripts from both strands originating at the midpoint of the region (mu)), we then count each transcript separate from one another. This allows more exact deconvolution of overlapping bidirectionals while maintaining as much data as possible.
+    * The "BOTH" option provides the counts and regions files for both of these methods.
 
 ### Parameters
 * **COUNT_WIN**
@@ -123,8 +176,9 @@ Nascent transcription occurs outside the bounds of gene annotations. Bidirection
     * TSS bidirectionals bed (for TFEA): `tss_bid_${prefix}_${date}_forTFEA.bed` (**if TFEA**)
     * NonTSS bidirectionals bed (for TFEA): `nontss_bid_${prefix}_${date}_forTFEA.bed` (**if TFEA**)
 * counts/
-    * fixed counts for the genes: `fixed_genes_${prefix}_${date}_counts.txt` (**if get_fixed_gene_counts**)
-    * fixed counts for the bidirectionals: `fixed_full_bid_${prefix}_${date}_counts.txt`
+    * fixed counts for the genes: `fixed_genes_${prefix}_${date}_counts.txt` (**if get_fixed_gene_counts**,  **can be fed into TFEA**)
+    * fixed counts for the Gene TSS bidirectionals: `fixed_genetss_${prefix}_${date}_counts.txt`
+    * fixed counts for the Non Gene TSS bidirectionals: `fixed_nongenetss_${prefix}_${date}_counts.txt`  (**can be fed into TFEA**)
 
 
 
@@ -134,6 +188,9 @@ Nascent transcription occurs outside the bounds of gene annotations. Bidirection
  
 ## Citing
 If using this pipeline, please cite ...
+
+## Contact Information
+If you have questions, reach out to hope.townsend@colorado.edu.
 
 
 

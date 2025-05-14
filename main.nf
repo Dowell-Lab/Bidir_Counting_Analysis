@@ -1174,8 +1174,11 @@ process FixCounts {
 
   publishDir "${params.outdir}/counts/" , mode: 'copy',
         saveAs: {filename ->
-              if ((filename == "full_bidir_counts.txt"))   
-               {return "fixed_full_bid_${params.prefix}_${params.date}_counts.txt"} else { return null }
+              if ((filename == "Fixed_tss_bidir_counts.txt"))   
+               {return "fixed_genetss_${params.prefix}_${params.date}_counts.txt"} 
+               else if ((filename == "Fixed_nontss_bidir_counts.txt")) 
+               {return "fixed_nongenetss_${params.prefix}_${params.date}_counts.txt"} else { return null }
+
              }
 
   script:
@@ -1260,8 +1263,15 @@ process FixCounts {
   full_counts <- data.frame(full_counts)
   colnames(full_counts) <- colnames(uns_counts)
 
+  # split into tss and nontss
+  full_nontss_counts <- full_counts[!full_counts\$Geneid %in% tss,]
+  full_tss_counts = full_counts[full_counts\$Geneid %in% tss,]
+
   # save full counts
-  write.table(full_counts, "full_bidir_counts.txt", 
+  write.table(full_nontss_counts, "Fixed_nontss_bidir_counts.txt", 
+              sep="\t", quote=FALSE, row.names=FALSE)
+
+  write.table(full_tss_counts, "Fixed_tss_bidir_counts.txt", 
               sep="\t", quote=FALSE, row.names=FALSE)
 
   ###################################################################
@@ -1269,7 +1279,6 @@ process FixCounts {
   ###################################################################
   if ("${params.get_fixed_genecounts}" == "TRUE") {
   ### Only keep bidirectionals if they have more than X counts across all samples
-  full_nontss_counts <- full_counts[!full_counts\$Geneid %in% tss,]
   full_nontss_counts_moreX <- full_nontss_counts[rowSums(full_nontss_counts[,colnames(full_nontss_counts)[grep(look_str,colnames(full_nontss_counts))]]) > as.integer(${params.count_limit_bids}),]
 
   full_nontss_counts_moreX <- full_nontss_counts_moreX[,c("Chr", "Start", "End", "Geneid")]
