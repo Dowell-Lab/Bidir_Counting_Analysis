@@ -3,7 +3,7 @@
 #SBATCH --job-name=Bidir_Counting
 #SBATCH --output=/scratch/Users/path/e_and_o/comb_get_counts_%j.out
 #SBATCH --error=/scratch/Users/path/e_and_o/comb_get_counts_%j.err
-#SBATCH --time=02:00:00
+#SBATCH --time=03:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=32
 #SBATCH --mem=5G
@@ -26,25 +26,33 @@ module load R/4.4.0
 
 ### Paths
 SRC=/Users/hoto7260/src/Bidir_Counting_Analysis/
-WD=/scratch/Users/hoto7260/Bench_DE/Elkon2015myc
+WD=/scratch/Users/
 ### Naming
-PREFIX="Elkon2015myc"
-DATE=04_4_24
+PREFIX=
+DATE=
 
-## IN Directories (BAMS in this case)
-bams=/scratch/Users/hoto7260/Bench_DE/raw_data/bams/Elkon2015myc/PRO/counting/
+## IN Directories Need mmfiltbams. If mmfiltbams is empty, must have crams or bams
+##   NOTE: MMFILTbams are usually produced by Bidirectional-Flow pipeline
+##   NOTE: The mmfiltbams directory can have bams that are not multimapped filtered, as long as the bams of interest have the suffix mmfilt.sorted.bam
+mmfiltbams=""
+crams=""
+bams=""
+# if crams then need genome
+genome=/scratch/Shares/dowell/genomes/hg38/hg38.fa
 
 ### Files
-File with consensus regions (e.g. output from Mumerge)
+# File with consensus regions (e.g. output from Mumerge)
 CONS_FILE=
 
 ### Parameters
-# window for counting (mu-window & mu + window)
-COUNT_WIN=500
-# window for TSS overlaps (mu-window & mu + window)
+# Type of counting (MU_COUNTS, SIMPLE, or BOTH)
+COUNT_TYPE="MU_COUNTS"
+# window for counting (mu - window & mu + window)
+COUNT_WIN=1000
+# window for TSS overlaps (mu - window & mu + window)
 TSS_WIN=25
-# minimum rowSUM counts needed for a gene to be considered "transcribed" and significantly altering bid counts (I used 40 for 4 samples)
-COUNT_LIMIT_GENES=60
+# minimum coverage needed for a gene to be considered "transcribed" and significantly altering bid counts 
+COUNT_LIMIT_GENES=0.7
 # the number required for a bidirectional to be considered impeding on gene transcription
 # usually do 25 for 4 samples
 COUNT_LIMIT_BIDS=30
@@ -62,21 +70,72 @@ echo "Date" ${DATE}
 echo "Consensus file for bids" ${COUNT_WIN}
 echo "Window used for counting (*2 for total region width)" ${COUNT_WIN}
 echo "Window used for TSS overlaps (*2 for total region width)" ${TSS_WIN}
-echo "min rowSum counts for gene to be a convolution problem" ${COUNT_LIMIT_GENES}
+echo "min coverage for gene to be a convolution problem" ${COUNT_LIMIT_GENES}
 echo "min rowSum counts for a bid to be a convolution problem" ${COUNT_LIMIT_BIDS}
 echo ""
+
+echo "##########################################################################"
+echo "##################         Getting Bams ready         ####################"
+echo "##########################################################################"
+# GETTING THE BAMS IF NEEDED
+# if there is no mmfiltbams
+if [[ -z "$mmfiltbams" ]]; then
+    if [[ -n "$crams" ]]; then
+        echo "Getting multimapped filtered bams from crams"
+        mmfiltbams=${WD}/mapped/mmfiltbams
+        mkdir -p ${mmfiltbams}
+        for cram in ${crams}/*.sorted.cram; do
+            prefix=$(basename "$cram" | sed 's/\.sorted\.cram$//')
+            samtools view -@ 32 -b -1 -T ${genome} ${cram} > ${mmfiltbams}/${prefix}.bam
+            samtools markdup -@ 32 -r -s ${mmfiltbams}/${prefix}.bam ${mmfiltbams}/${prefix}_nodup.bam
+            rm ${mmfiltbams}/${prefix}.bam
+            samtools view -@ 32 -h -F 2308 -q 1 ${mmfiltbams}/${prefix}_nodup.bam | \
+               grep -P '(NH:i:1|^@)' | \
+               samtools view -@ 32 -h -b  > ${mmfiltbams}/${prefix}.mmfilt.bam
+            rm ${mmfiltbams}/${prefix}_nodup.bam
+            samtools sort -@ 32 ${mmfiltbams}/${prefix}.mmfilt.bam > ${mmfiltbams}/${prefix}.mmfilt.sorted.bam
+            rm ${mmfiltbams}/${prefix}.mmfilt.bam
+           samtools view -@ 32 -c ${mmfiltbams}/${prefix}.mmfilt.sorted.bam
+           samtools index -@ 32 ${mmfiltbams}/${prefix}.mmfilt.sorted.bam ${mmfiltbams}/${prefix}.mmfilt.sorted.bam.bai
+        done
+    elif [[ -n "$bams" ]]; then
+        echo "Getting multi-mapped filtered bams from bams"
+        mmfiltbams=${WD}/mapped/mmfiltbams_og
+        mkdir -p ${mmfiltbams}
+        for bam in ${bams}/*.sorted.bam; do
+            prefix=$(basename "$bam" | sed 's/\.sorted\.bam$//')
+            samtools markdup -@ 32 -r -s ${bam} ${bams}/${prefix}_nodup.bam
+            samtools view -@ 32 -h -F 2308 -q 1 ${bams}/${prefix}_nodup.bam | \
+               grep -P '(NH:i:1|^@)' | \
+               samtools view -@ 32 -h -b  > ${mmfiltbams}/${prefix}.mmfilt.bam
+               rm ${bams}/${prefix}_nodup.bam
+            samtools sort -@ 32 ${mmfiltbams}/${prefix}.mmfilt.bam > ${mmfiltbams}/${prefix}.mmfilt.sorted.bam
+            rm ${mmfiltbams}/${prefix}.mmfilt.bam
+           samtools view -@ 32 -c ${mmfiltbams}/${prefix}.mmfilt.sorted.bam
+           samtools index -@ 32 ${mmfiltbams}/${prefix}.mmfilt.sorted.bam ${mmfiltbams}/${prefix}.mmfilt.sorted.bam.bai
+        done
+    else
+        echo "Need to have at least one of the variables filled: mmfiltbams, crams, bams"
+        exit 152
+    fi
+else
+    echo "Using the provided multimapped filtered bams at ${mmfiltbams}"
+fi
 
 
 echo "#####################################################################################"
 echo "########################            1a. GET THE OVERLAPS         ####################"
 echo "#####################################################################################"
 
-# The FULL transcripts with putatives (WARNING: if names are too long, bedtools breaks without warning)
-TRANSCRIPTS=${SRC}/assets/hg38_refseq_diff53prime_with_putatives_fixnames.bed
+# The FULL transcripts with putatives (WARNING: if names are too long, bedtools breaks without warning). This has been addressed with the _fixnames file.
+TRANSCRIPTS=${SRC}/assets/hg38_refseq_diff53prime_with_putatives_fixnames.sorted.bed
 # The gene file you will use for counting (make sure truncated)
-TRUNC=${SRC}/assets/hg38_refseq_diff53prime_5ptrunc_counting.bed
+TRUNC=${SRC}/assets/hg38_refseq_diff53prime_5ptrunc_counting.sorted.bed
+# the gene file where there are 
+GENE_DWN=${SRC}/assets/hg38_refseq_diff53prime_10kbdwnstm_with_putatives_fixnames.sorted.bed
 # TSS 1kb region (500bp ± TSS)
 TSS_BED=${SRC}/assets/hg38_TSS1kb_refseq_diff53prime_with_putatives.bed
+
 
 ##########################
 # GET THE INPUT BED FILES
@@ -88,10 +147,13 @@ TSS_WIN_FILE=${WD}/regions/${PREFIX}_${DATE}_MUMERGE_${COUNT_WIN}win_TSS.sorted.
 # NAMING THE OUTPUT FILES
 OUT_DIR=${WD}/overlaps
 mkdir -p ${OUT_DIR}
+mkdir -p ${WD}/regions
 TSS_OUT=${OUT_DIR}/overlaps_hg38_TSS1kb_withput_${PREFIX}_MUMERGE_${DATE}.bed
 COUNT_OUT=${OUT_DIR}/overlaps_hg38_withput_${PREFIX}_MUMERGE_${DATE}.bed
+DWN_OUT=${OUT_DIR}/overlaps_hg38_withput_dwnstm_${PREFIX}_MUMERGE_${DATE}.bed
 COUNT_TRUNC_OUT=${OUT_DIR}/overlaps_hg38_trunc_${PREFIX}_MUMERGE_${DATE}.bed
 CLOSE_OUT=${OUT_DIR}/closest_hg38_withput_${PREFIX}_MUMERGE_${DATE}.bed
+CLOSE_BID=${OUT_DIR}/closest_Bids_${PREFIX}_MUMERGE_${DATE}.bed
 
 # ##########################
 # # GETTING THE OVERLAPS
@@ -106,15 +168,17 @@ TSS_WIN_FILE=${INT_TSS_WIN}
 # Identifying TSS Bids
 bedtools intersect -wo -a ${TSS_WIN_FILE} -b ${TSS_BED} > ${TSS_OUT}
 wc -l ${TSS_OUT}
-## Bids that overlap with transcripts (for counting) -- must have gene first
+## Bids that overlap with transcripts -- must have gene first 
 bedtools intersect -wo -a ${TRANSCRIPTS} -b ${COUNT_WIN_FILE} > ${COUNT_OUT}
 wc -l ${COUNT_OUT}
-## Bids that overlap with transcripts (for counting) -- must have gene first
+## Bids that overlap with 10kb downstream of transcripts -- must have gene first 
+bedtools intersect -wo -a ${GENE_DWN} -b ${COUNT_WIN_FILE} > ${DWN_OUT}
+wc -l ${DWN_OUT}
+## Bids that overlap with truncated transcripts -- must have gene first
 bedtools intersect -wo -a ${TRUNC} -b ${COUNT_WIN_FILE} > ${COUNT_TRUNC_OUT}
 wc -l ${COUNT_TRUNC_OUT}
-## Bids within 10kb of the transcripts (do 1000 to ensure all are included)
-bedtools closest -D ref -k 100 -a ${TRANSCRIPTS} -b ${COUNT_WIN_FILE} > ${CLOSE_OUT}
-wc -l ${CLOSE_OUT}
+## Bids possibly overlapping with one another (-N means can't have same name)
+bedtools closest -D ref -k 5 -N -a ${TSS_WIN_FILE} -b ${TSS_WIN_FILE} > ${CLOSE_BID}
 
 echo ""
 echo "#####################################################################################"
@@ -130,79 +194,107 @@ genes=${SRC}/assets/hg38_refseq_diff53prime_with_putatives_5ptrunc.saf
 ########################################## 
 # Count reads over gene coordinates     ##
 ##########################################
-cd ${bams}
-echo "Submitted counts with Rsubread for original genes by strand......"
-# Use this many threads (-T)
-# Count multi-overlapping read
-# Count reads in a strand specific manner (-s 2)
-# Count by the gene feature (-t 'gene')
-featureCounts \
-    -T 32 \
-    -O \
-    -s 1 \
-    -a ${genes} \
-    -F 'SAF' \
-    -o ${counts}/${PREFIX}_str_put_genes.txt \
-    ./*.sorted.bam
+
+
+echo "Running bedtools coverage to see the coverage over a gene with multimap filtered bams"
+# use bedtools coverage to ensure that most of the gene is being transcribed
+cd ${mmfiltbams}
+bedtools coverage -s -sorted -a ${TRUNC} -b *mmfilt.sorted.bam > ${counts}/${PREFIX}_str_put_genes.txt
+head -3 ${counts}/${PREFIX}_str_put_genes.txt
+
     
 echo ""
 echo "###################################################################################"
-echo "########################          2. GET TSS & Filt Bids       ####################"
+echo "######     2. GET TSS Bids & GTF files for Bid Counting (no overlaps)       #######"
 echo "###################################################################################"
-# YES refers to TFEA output being made
-Rscript ${SRC}/bin/get_TSS_and_filt_bids.r ${WD} ${PREFIX} ${DATE} ${COUNT_WIN_FILE} ${COUNT_LIMIT_GENES} ${TFEA}
+# YES refers to TFEA output being mades
+Rscript ${SRC}/bin/get_TSS_and_filt_bids.r ${WD} ${PREFIX} ${DATE} ${COUNT_LIMIT_GENES} ${COUNT_WIN} ${COUNT_TYPE} ${TFEA}
 wc -l ${WD}/regions/*
+
 
 echo ""
 echo "###################################################################################"
 echo "########################         3. GET Fixed & Bid Counts     ####################"
 echo "###################################################################################"
-bidirs=${WD}/regions/${PREFIX}_MUMERGE_tfit,dreg_${DATE}_filt.saf
+cd ${mmfiltbams}
 
-cd ${bams}
+if [[ "$COUNT_TYPE" == "SIMPLE" || "$COUNT_TYPE" == "BOTH" ]]; then
+    bidirs=${WD}/regions/${PREFIX}_MUMERGE_tfit,dreg_${DATE}_filt.saf
+    echo "Submitting counts for Bidirectionals with Simple SAF"
+    # Use this many threads
+    # Count multi-overlapping read (regardless of percentage of overlap)
+    # Count reads NOT in a strand specific manner
+    featureCounts \
+       -T 32 \
+       -O \
+       -s 0 \
+       -a ${bidirs} \
+       -F 'SAF' \
+       -o ${counts}/${PREFIX}_uns_bidirs.txt \
+       ./*mmfilt.sorted.bam
+    
+    # Count reads NOT in a strand specific manner
+    featureCounts \
+       -T 32 \
+       -O \
+       -s 1 \
+       -a ${bidirs} \
+       -F 'SAF' \
+       -o ${counts}/${PREFIX}_pos_bidirs.txt \
+       ./*mmfilt.sorted.bam
+    
+    # Count multi-overlapping read
+    featureCounts \
+       -T 32 \
+       -O \
+       -s 2 \
+       -a ${bidirs} \
+       -F 'SAF' \
+       -o ${counts}/${PREFIX}_neg_bidirs.txt \
+       ./*mmfilt.sorted.bam
 
-echo "Submitted counts with Rsubread for bidsirectionals unstranded......"
-# Use this many threads
-# Count multi-overlapping read (regardless of percentage of overlap)
-# Count reads NOT in a strand specific manner
-featureCounts \
-   -T 32 \
-   -O \
-   -s 0 \
-   -a ${bidirs} \
-   -F 'SAF' \
-   -o ${counts}/${PREFIX}_uns_bidirs.txt \
-   ./*.sorted.bam
+    # Fix the counts
+    Rscript ${SRC}/bin/fix_bid_counts.r ${WD} ${PREFIX} ${DATE} ${COUNT_LIMIT_BIDS} ${COUNT_LIMIT_GENES} "SIMPLE"
+fi
 
-echo "Submitted counts with Rsubread for bidirectionals stranded (+)......"
-# Use this many threads
-# Count multi-overlapping read
-# Count reads NOT in a strand specific manner
-featureCounts \
-   -T 32 \
-   -O \
-   -s 1 \
-   -a ${bidirs} \
-   -F 'SAF' \
-   -o ${counts}/${PREFIX}_pos_bidirs.txt \
-   ./*.sorted.bam
+if [[ "$COUNT_TYPE" == "MU_COUNTS" || "$COUNT_TYPE" == "BOTH" ]]; then
+    gtf_prefix=${WD}/regions/${PREFIX}_mucounts_${COUNT_WIN}_${DATE}
+    # count using the GTFs
+    featureCounts \
+       -T 32 \
+       -O \
+       -s 1 \
+       -a ${gtf_prefix}.gtf \
+       -t "exon" \
+       -F 'GTF' \
+       -o ${counts}/${PREFIX}_mucounts_str_bidirs.txt \
+       ./*mmfilt.sorted.bam
 
-echo "Submitted counts with Rsubread for bidirectionals stranded (-)......"
-# Use this many threads
-# Count multi-overlapping read
-featureCounts \
-   -T 32 \
-   -O \
-   -s 2 \
-   -a ${bidirs} \
-   -F 'SAF' \
-   -o ${counts}/${PREFIX}_neg_bidirs.txt \
-   ./*.sorted.bam
+    featureCounts \
+       -T 32 \
+       -O \
+       -s 1 \
+       -a ${gtf_prefix}_pos.gtf \
+       -t "exon" \
+       -F 'GTF' \
+       -o ${counts}/${PREFIX}_mucounts_pos_bidirs.txt \
+       ./*mmfilt.sorted.bam
 
-#########################
-## Now Fix the Counts ##
-#########################
-Rscript ${SRC}/bin/fix_bid_counts.r ${WD} ${PREFIX} ${DATE} ${COUNT_LIMIT_BIDS} ${COUNT_LIMIT_GENES}
+       featureCounts \
+       -T 32 \
+       -O \
+       -s 1 \
+       -a ${gtf_prefix}_neg.gtf \
+       -t "exon" \
+       -F 'GTF' \
+       -o ${counts}/${PREFIX}_mucounts_neg_bidirs.txt \
+       ./*mmfilt.sorted.bam
+
+       # Fix the counts
+       Rscript ${SRC}/bin/fix_bid_counts.r ${WD} ${PREFIX} ${DATE} ${COUNT_LIMIT_BIDS} ${COUNT_LIMIT_GENES} "MU_COUNTS"
+fi
+
+
 wc -l ${fixed_counts}/*
 
 echo ""
@@ -233,7 +325,7 @@ echo "Submitted counts with Rsubread for nonoverlapping gene regions by strand..
 #Use this many threads
 #Count multi-overlapping read
 #Count reads in a strand specific manner
-cd ${bams}
+cd ${mmfiltbams}
 featureCounts \
     -T 32 \
     -O \
@@ -241,8 +333,8 @@ featureCounts \
     -t "exon" \
     -a ${NEW_REG} \
     -F 'GTF' \
-    -o ${fixed_counts}/${prefix}_str_fixed_genes_${date}.txt \
-   ./*.sorted.bam
+    -o ${fixed_counts}/${PREFIX}_str_fixed_genes_${DATE}.txt \
+   ./*mmfilt.sorted.bam
 
 wc -l ${fixed_counts}/*
 

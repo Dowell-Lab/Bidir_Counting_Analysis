@@ -1,83 +1,92 @@
 library(data.table)
+library(stringr)
 
 args <- commandArgs(trailingOnly = TRUE)
 wd = args[1]
 prefix = args[2]
 date = args[3]
 count_req = args[4] # usually 10 for 4 samples
-count_limit_genes = as.integer(args[5])
+count_limit_genes = as.numeric(args[5])
+count_type = args[6] # whetehr or not SIMPLE or MU_COUNTS
 cat("\nARGUMENTS:", args, "\n")
+
 
 region_dir = paste0(wd, "/regions/")
 fixed_count_dir = paste0(wd, "/fixed_counts/")
 overlaps_dir = paste0(wd, "/overlaps/")
 count_out_file = paste0(overlaps_dir, "overlaps_hg38_withput_", prefix, "_MUMERGE_", date, ".bed")
+dwn_out_file = paste0(overlaps_dir, "overlaps_hg38_withput_dwnstm_", prefix, "_MUMERGE_", date, ".bed")
 closest_file = paste0(overlaps_dir, "closest_hg38_withput_", prefix, "_MUMERGE_", date, ".bed")
+count_file = paste0(wd, "/counts/", prefix, "_str_put_genes.txt")
 tss_file = paste0(region_dir, "tss_bid_", prefix, "_", date, ".txt")
-
-
-###################################
-## 1. Get the fixed counts ##
-###################################
 count_dir <- paste0(wd, "/counts")
 fixed_count_dir <- paste0(wd, "/fixed_counts")
 
+
+if (count_type == "SIMPLE") {
+    uns_counts_file = paste0(count_dir, "/", prefix, "_uns_bidirs.txt")
+    pos_counts_file = paste0(count_dir, "/", prefix, "_pos_bidirs.txt")
+    neg_counts_file = paste0(count_dir, "/", prefix, "_neg_bidirs.txt")
+    full_counts_file = paste0(fixed_count_dir, "/", prefix, "_fixed_bids_", date, ".txt")
+    } else {
+    uns_counts_file = paste0(count_dir, "/", prefix, "_mucounts_str_bidirs.txt")
+    pos_counts_file = paste0(count_dir, "/", prefix, "_mucounts_pos_bidirs.txt")
+    neg_counts_file = paste0(count_dir, "/", prefix, "_mucounts_neg_bidirs.txt")
+    full_counts_file = paste0(fixed_count_dir, "/", prefix, "_mucounts_fixed_bids_", date, ".txt")
+    }
+
+
+
+
+########################
+## Read in the counts ##
+########################
 # read in counts
-uns_counts <- fread(paste0(count_dir, "/", prefix, "_uns_bidirs.txt"))
-pos_counts <- fread(paste0(count_dir, "/", prefix, "_pos_bidirs.txt"))
-neg_counts <- fread(paste0(count_dir, "/", prefix, "_neg_bidirs.txt"))
+uns_counts <- fread(uns_counts_file)
+pos_counts <- fread(pos_counts_file)
+neg_counts <- fread(neg_counts_file)
 
 #######################################################################
 ## Get the Bids that need to be fixed due to close/overlapping genes ##
 #######################################################################
-# get the genes with >40 counts
-counts <- fread(paste0(count_dir, "/", prefix, "_str_put_genes.txt"))
-count_matrix = data.frame(counts[,7:ncol(counts)])
-rownames(count_matrix) <- counts$Geneid
-count_matrix[1:2,]
-high_counts = count_matrix[rowSums(count_matrix) > count_limit_genes,]
-high_counts = rownames(high_counts)
+# read in the overlaps of Bids with transcripts (either full or downstream)
+count_over <- fread(count_out_file)
+dwn_over <- fread(dwn_out_file)
 
 # Get the TSS bids
 tss <- fread(tss_file)
 tss <- unique(tss$BidID)
 
-# read in the overlaps with genes 
-over <- fread(count_out_file)
-# only keep those with significant counts
-over <- over[over$V4 %in% high_counts]
+# read in the prel gene counts
+counts <- fread(count_file)
+colnames(counts) <- c("chrom", "start", "stop", "bidir", "dot", "strand", "count", "cov_bases", "length", "cov_frac")
+# ensure that the Genes and overlaps have the same Geneid format
+counts$Geneid <- str_split_fixed(counts$bidir, ",", 2)[,1]
+# get the high counts
+high_counts = counts[counts$cov_frac > count_limit_genes,]$Geneid
+# only consider overlaps with genes with high counts
+count_over <- count_over[count_over$V4 %in% high_counts]
+dwn_over <- dwn_over[dwn_over$V4 %in% high_counts]
 
-# only keep closest  genes that are being transcribed significantly
-closest <- fread(closest_file)
-closest <- closest[closest$V4 %in% high_counts]
-# only keep those that are within 5kb to the 3prime end 
-# for positive genes, means V11 <5000 & positive 
-closest <- closest[(closest$V6 == "+" & closest$V11 > 0 & closest$V11 < 5001) | closest$V6 == "-",]
-# for negative genes, means V11 <5000 & negative
-closest <- closest[(closest$V6 == "-" & closest$V11 < 0 & closest$V11 > -5001) | closest$V6 == "+",]
+# Split the overlaps into positive and negative strands
+count_over_neg = count_over[count_over$V6 == "-", ]
+count_over_pos = count_over[count_over$V6 == "+", ]
+dwn_over_neg = dwn_over[dwn_over$V6 == "-", ]
+dwn_over_pos = dwn_over[dwn_over$V6 == "+", ]
 
-# only consider bids not previously filtered out
-over <- over[over$V10 %in% uns_counts$Geneid]
-closest <- closest[closest$V10 %in% uns_counts$Geneid]
+# Get the NONTSS overlapping on one strand strands
+bid_pos_conflict <- setdiff(union(count_over_pos$V10, dwn_over_pos$V10), tss)
+bid_neg_conflict <- setdiff(union(count_over_neg$V10, dwn_over_neg$V10), tss)
+remove_bids = intersect(bid_pos_conflict, bid_neg_conflict)
 
-# remove the tss and get the pos & neg ones
-over <- over[!over$V10 %in% tss,]
-over_bid_pos <- unique(over[over$V6 == "+",]$V10)
-over_bid_neg <- unique(over[over$V6 == "-",]$V10)
-closest <- closest[!closest$V10 %in% tss,]
-closest_bid_pos <- unique(closest[closest$V6 == "+",]$V10)
-closest_bid_neg <- unique(closest[closest$V6 == "-",]$V10)
+cat("\nTotal Number of NonTSS bids removing due to convolution", length(remove_bids))
+cat("\nTotal regions considered", nrow(pos_counts), nrow(uns_counts), nrow(neg_counts))
+pos_counts = pos_counts[!pos_counts$Geneid %in% remove_bids,]
+uns_counts = uns_counts[!uns_counts$Geneid %in% remove_bids,]
+neg_counts = neg_counts[!neg_counts$Geneid %in% remove_bids,]
 
-# remove those that are within 5kb of 3' of transcribed gene & in opp strand gene
-bid_pos_conflict <- union(closest_bid_pos, over_bid_pos)
-bid_neg_conflict <- union(closest_bid_neg, over_bid_neg)
-remove_bids <- intersect(bid_pos_conflict, bid_neg_conflict)
-cat("\nBids to Remove", remove_bids[1:2])
+cat("\nTotal regions considered", nrow(pos_counts), nrow(uns_counts), nrow(neg_counts))
 
-# remove the bids that can't easily be deconvoluted
-uns_counts <- uns_counts[!uns_counts$Geneid %in% remove_bids]
-pos_counts <- pos_counts[!pos_counts$Geneid %in% remove_bids]
-neg_counts <- neg_counts[!neg_counts$Geneid %in% remove_bids]
 
 ##########################
 ## Get the Fixed Counts ##
@@ -120,10 +129,10 @@ nrow(uns_counts2)+nrow(pos_counts)+nrow(neg_counts)
 full_counts <- data.frame(full_counts)
 colnames(full_counts) <- colnames(uns_counts)
 full_counts[1:2,]
+print(dim(full_counts))
 
 # save full counts
-write.table(full_counts, 
-            paste0(fixed_count_dir, "/", prefix, "_fixed_bids_", date, ".txt"), 
+write.table(full_counts, full_counts_file, 
             sep="\t", quote=FALSE, row.names=FALSE)
 
 ###################################################################
