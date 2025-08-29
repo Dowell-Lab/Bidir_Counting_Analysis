@@ -63,9 +63,9 @@ Analysis Options:
 
 Files to Use (with Defaults):
     --genome                       Only needed if --crams is used (default is /scratch/Shares/dowell/genomes/hg38/hg38.fa)
-    --tss_1kb_file                 sorted bed file with 500bp region +/- around TSS of all genes (including putatives) (Default in assets of github repo)
-    --gene_put_file                sorted bed file of all gene isoforms (Default in assets of github repo)
-    --gene_put_10kbdntm_file       sorted bed file of the termination site of gene isoforms to 10kb downstream (Default in assets of github repo)
+    --tss_1kb_file                 sorted bed file with 500bp region +/- around TSS of all genes (including putatives) (Default in assets of github repo, hg38 RefSeq pt.14)
+    --gene_put_file                sorted bed file of all gene isoforms (Default in assets of github repo, hg38 RefSeq pt.14)
+    --gene_put_10kbdntm_file       sorted bed file of the termination site of gene isoforms to 10kb downstream (Default in assets of github repo, hg38 RefSeq pt.14)
     --gene_count_file              sorted bed file of 5prime truncated genes over which you want to count
 ```
 

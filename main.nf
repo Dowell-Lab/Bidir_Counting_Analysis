@@ -56,6 +56,7 @@ def helpMessage() {
 
     Files to Use (with Defaults):
         --genome                       Only needed if --crams is used (default is /scratch/Shares/dowell/genomes/hg38/hg38.fa)
+        --chrom_order                  /scratch/Shares/dowell/genomes/hg38/hg38.chrom.sizes
         --tss_1kb_file                 sorted bed file with 500bp region +/- around TSS of all genes (including putatives) (Default in assets of github repo)
         --gene_put_file                sorted bed file of all gene isoforms (Default in assets of github repo)
         --gene_put_10kbdntm_file       sorted bed file of the termination site of gene isoforms to 10kb downstream (Default in assets of github repo)
@@ -111,6 +112,7 @@ params.count_limit_bids = 30
 
 
 params.genome = '/scratch/Shares/dowell/genomes/hg38/hg38.fa'
+params.chrom_order = '/scratch/Shares/dowell/genomes/hg38/hg38.chrom.sizes'
 params.tss_1kb_file = "${workflow.projectDir}/assets/hg38_TSS1kb_refseq_diff53prime_with_putatives.bed"
 params.gene_put_file = "${workflow.projectDir}/assets/hg38_refseq_diff53prime_with_putatives_fixnames.sorted.bed"
 params.gene_put_10kbdntm_file = "${workflow.projectDir}/assets/hg38_refseq_diff53prime_10kbdwnstm_with_putatives_fixnames.sorted.bed"
@@ -425,8 +427,8 @@ process CountPutGenes {
 
   cpus 1
   queue 'short'
-  memory '20 GB'
-  time '5h'
+  memory '40 GB'
+  time '6h'
   tag "$prefix"
 
   input:
@@ -441,11 +443,13 @@ process CountPutGenes {
   script:
   """
   # Get the genome file to use (order of chromosomes)
-  #cut --fields=1 ${params.gene_put_file} | uniq > chrom_order.txt
-  #bedtools coverage -s -sorted -g chrom_order.txt -a ${params.gene_put_file} -b ./*mmfilt.sorted.bam > put_gene_counts.txt
     if [ -d "mmfiltbams" ]; then
+        # try sorted since less memory and if that fails do the original
+        bedtools coverage -sorted -g ${params.chrom_order} -s -a ${params.gene_put_file} -b ./mmfiltbams/*.bam > put_gene_counts.txt || \
         bedtools coverage -s -a ${params.gene_put_file} -b ./mmfiltbams/*.bam > put_gene_counts.txt
     else
+        # try sorted and if that fails do the original
+        bedtools coverage -sorted -g ${params.chrom_order} -s -a ${params.gene_put_file} -b ./*mmfilt.sorted.bam > put_gene_counts.txt || \
         bedtools coverage -s -a ${params.gene_put_file} -b ./*mmfilt.sorted.bam > put_gene_counts.txt
     fi
   
@@ -1170,7 +1174,8 @@ process FixCounts {
 
   output:
   file ("nontssbid_uniqueid_above_countreq.bed") into use_bid
-  file ("full_bidir_counts.txt") into final_counts
+  file ("Fixed_nontss_bidir_counts.txt") into final_nontss_counts
+    file ("Fixed_tss_bidir_counts.txt") into final_tss_counts
 
   publishDir "${params.outdir}/counts/" , mode: 'copy',
         saveAs: {filename ->

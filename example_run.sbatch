@@ -2,11 +2,11 @@
 #SBATCH --job-name=BidirCountFlow_Test
 #SBATCH --output=/scratch/Users/hoto7260/nextflow_out/Bidir_Count/e_and_o/test_%j.out
 #SBATCH --error=/scratch/Users/hoto7260/nextflow_out/Bidir_Count/e_and_o/test_%j.out
-#SBATCH --time=24:00:00
+#SBATCH --time=10:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=5
 #SBATCH --mem=1G
-#SBATCH --partition long
+#SBATCH --partition short
 #SBATCH --mail-type=FAIL,END
 #SBATCH --mail-user=hoto7260@colorado.edu
 
@@ -34,4 +34,4 @@ NXF_DEBUG=1 /scratch/Shares/dowell/dbnascent/pipeline_assets/nextflow run /Users
  --outdir /scratch/Users/hoto7260/nextflow_out/Bidir_Count/Test/ \
  --prefix Testing \
  --date 2.10.25 \
- --count_type "SIMPLE"
+ --count_type "Simple"
