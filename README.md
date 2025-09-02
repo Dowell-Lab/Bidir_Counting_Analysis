@@ -2,7 +2,7 @@
 This repository is a generalizable pipeline for getting bidirectional and gene counts from Nascent sequencing data while accounting for overlapping transcription, and the different transcriptional patterns of gene 5prime bidirectionals and enhancers. The counts (suggested) or combined files can also be fed directly into [TFEA](https://github.com/Dowell-Lab/TFEA). Details of the pipeline can be found in "How it Works." 
 
 ## Requirements:
-* Nextflow (version >= 19.10.0, but the latest versions also appear to cause difficulties) You can easily run an older version of nextflow without reinstalling by specifying in the nextflow command, i.e. NXF_VER=19.10.0 nextflow run ...
+* Nextflow (version >= 19.10.0, but the latest versions also appear to cause difficulties) You can easily run an older version of nextflow without reinstalling by specifying in the nextflow command, i.e. NXF_VER=19.10.0 nextflow run .... We tested using this nextflow version 20.07.1.5412.
 * bedtools (2.28.0 tested)
 * samtools (1.8 tested)
 * subread (1.6.2 tested)
@@ -16,10 +16,18 @@ This repository is a generalizable pipeline for getting bidirectional and gene c
         >install.packages("data.table")
         >install.packages("stringR")
         ```
+
+
 * python >3 (3.6 & 3.9 tested)
-    * pandas (2.2.2 tested with python 3.9)
-    * numpy (1.26.5 tested with python 3.9)
-    * If on the supercomputer, pandas is not available for python 3 so you need to make a conda or pip environment and activate this before running the nextflow pipeline.
+    * pandas (2.2.2 and 2.0.3 tested with python 3.9)
+    * numpy (1.26.5 and 1.25.2 tested with python 3.9)
+    * If on the supercomputer, pandas is not available for python 3 so you need to make a conda or pip environment and activate this before running the nextflow pipeline::
+      ```
+      conda create -n python39
+      conda activate python39
+      conda install python=3.9.17 numpy=1.25.2 pandas=2.0.3
+      ```
+
  
 -------------------------------------------------------------
 ## Running Bidir_Counting_Flow
@@ -54,7 +62,6 @@ Save options:
 
 Analysis Options:
     --make_names                   If the cons_file does NOT have a column 4 with the names, a unique name will be added for each feature (default="YES")
-    --count_type                   Type of counting done for bidirectionals (more info on README). Options = "SIMPLE", "MU_COUNTS", "BOTH" (default="MU_COUNTS")
     --count_win                    Window added from mu to consider for initial counting of bidirectionals (so if 1000 --> 2000bp region) (default=1000)
     --tss_win                      Window added from mu to overlap bidirectionals with gene TSS windows to identify 5' gene bidirectionals (default=25)
     --count_limit_genes            Minimum coverage (fraction of gene covered by reads) required to consider a gene transcribed and possibly convoluting transcription (default=0.7)
@@ -69,6 +76,27 @@ Files to Use (with Defaults):
     --gene_count_file              sorted bed file of 5prime truncated genes over which you want to count
 ```
 
+### Testing
+
+Run the `example_run.sbatch` found in tests/ to double check that you can run it successfully. 
+
+You must make the following edits to the file:
+1. The error and output paths (lines 3 & 4)
+2. The variable SRC_DIR (point based on where you house this repository)
+3. The path to the conda environment (line 24)
+
+You should get the following output in tests/out:
+    * counts/
+        * fixed_genes_Testing_8.29.25_counts.txt
+        * fixed_genetss_Testing_8.29.25_counts.txt
+        * fixed_nongenetss_Testing_8.29.25_counts.txt
+    * regions/
+        * nontss_bid_Testing_8.29.25_forTFEA.bed
+        * tss_bid_Testing_8.29.25_forTFEA.bed
+        * tss_bid_Testing_8.29.25.txt
+        
+
+
 ### Example Run on Fiji
 ```
 #!/bin/bash
@@ -79,7 +107,7 @@ Files to Use (with Defaults):
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --mem=1G
-#SBATCH --partition highmem
+#SBATCH --partition short
 #SBATCH --mail-type=FAIL,END
 #SBATCH --mail-user=hoto7260@colorado.edu
 
@@ -107,7 +135,6 @@ source activate /Users/hoto7260/miniconda3/envs/python39
  --outdir /scratch/Users/hoto7260/Resp_Env/Comb_UPM_WSP_ADP/ADP \
  --prefix CUWA_ADP \
  --date 3.26.25 \
- --count_type "MU_COUNTS" \
  --count_limit_bids 60 \
  --gene_put_file /Users/hoto7260/src/Bidir_Counting_Analysis/assets/hg38_refseq_diff53prime_with_putatives_fixnames_sort2.sorted.bed
 ```
@@ -131,7 +158,7 @@ Nascent transcription occurs outside the bounds of gene annotations. Bidirection
 
 3B. Address overlapping transcription from bidirectionals with other bidirectionals:
 * **Significance**: Bidirectionals can often be close to one another so that a fixed region length captures multiple at once. However, bidirectional transcript lengths can also widely vary. 
-* **Solution**: Count_type="MU_COUNTS" (default) fixes this as described further in "More about Inputs and Outputs."
+* **Solution**: "MU_COUNTS" fixes this as described further in "More about Inputs and Outputs."
 
 4 . Address overlapping transcription from bidirectionals within genes:
 * **Significance**: [Azofeifa et al](https://ieeexplore.ieee.org/abstract/document/7393555) showed that differential gene expression analysis can be largely disrupted by counting capturing differences between bidirectionals within genes rather than the genes themselves.
@@ -144,14 +171,6 @@ Nascent transcription occurs outside the bounds of gene annotations. Bidirection
     * These are bams that have already been filtered for multimapped reads. If you do not have these, you can instead use the crams or bams directory.
 * **CONS_FILE**
     * This is a bed file (tab-delimited with no header) with a minimum of three columns: Chromosome, start, end. The midpoint between the start and end should be the estimated center of the bidirectional (transcription start site of the bidirectional). A robust way to get these sites is running [muMerge](https://github.com/Dowell-Lab/mumerge). 
-
-### Analysis Options
-* **COUNT_TYPE** = string to refer to the type of counting method you want (options are "SIMPLE", "MU_COUNTS", or "BOTH" and are described below):
-    * The "SIMPLE" approach uses a fixed window (COUNT_WIN) around the centers of the consensus regions providing without worrying about neighboring bidirectionals, and considering the entire region for positive and negative counts (doesn't split into transcripts).
-    * The "MU_COUNTS" approach uses a fixed window (COUNT_WIN) for the region of the tRE BUT has two additions (Image below to help visualize):
-        1) Considers overlapping regions: If a fixed counting window means the given regions are now overlapping, the neighboring tREs will be counted so that the maximum distance of a transcript is to the middle (mu) of the nearest neighboring tRE.
-        2) Considers transcripts of each region separately: Assuming each consensus region is a bidirectional (transcripts from both strands originating at the midpoint of the region (mu)), we then count each transcript separate from one another. This allows more exact deconvolution of overlapping bidirectionals while maintaining as much data as possible.
-    * The "BOTH" option provides the counts and regions files for both of these methods.
 
 ### Parameters
 * **COUNT_WIN**
@@ -177,8 +196,19 @@ Nascent transcription occurs outside the bounds of gene annotations. Bidirection
     * NonTSS bidirectionals bed (for TFEA): `nontss_bid_${prefix}_${date}_forTFEA.bed` (**if TFEA**)
 * counts/
     * fixed counts for the genes: `fixed_genes_${prefix}_${date}_counts.txt` (**if get_fixed_gene_counts**,  **can be fed into TFEA**)
-    * fixed counts for the Gene TSS bidirectionals: `fixed_genetss_${prefix}_${date}_counts.txt`
-    * fixed counts for the Non Gene TSS bidirectionals: `fixed_nongenetss_${prefix}_${date}_counts.txt`  (**can be fed into TFEA**)
+    * (MU_COUNTS) fixed counts for the Gene TSS bidirectionals: `fixed_MU_genetss_${prefix}_${date}_counts.txt`
+    * (MU_COUNTS) fixed counts for the Non Gene TSS bidirectionals: `fixed_MU_nongenetss_${prefix}_${date}_counts.txt` 
+    * (SIMPLE) fixed counts for the Gene TSS bidirectionals: `fixed_genetss_${prefix}_${date}_counts.txt`
+    * (SIMPLE) fixed counts for the Non Gene TSS bidirectionals: `fixed_nongenetss_${prefix}_${date}_counts.txt` 
+
+
+#### Difference between MU_COUNTS and SIMPLE
+    
+* The "SIMPLE" approach uses a fixed window (COUNT_WIN) around the centers of the consensus regions providing without worrying about neighboring bidirectionals, and considering the entire region for positive and negative counts (doesn't split into transcripts).
+* The "MU_COUNTS" approach uses a fixed window (COUNT_WIN) for the region of the tRE BUT has two additions (Image below to help visualize):
+  1) Considers overlapping regions: If a fixed counting window means the given regions are now overlapping, the neighboring tREs will be counted so that the maximum distance of a transcript is to the middle (mu) of the nearest neighboring tRE.
+  2) Considers transcripts of each region separately: Assuming each consensus region is a bidirectional (transcripts from both strands originating at the midpoint of the region (mu)), we then count each transcript separate from one another. This allows more exact deconvolution of overlapping bidirectionals while maintaining as much data as possible.
+
 
 
 

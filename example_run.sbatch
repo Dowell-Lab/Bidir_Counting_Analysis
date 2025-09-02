@@ -2,13 +2,17 @@
 #SBATCH --job-name=BidirCountFlow_Test
 #SBATCH --output=/scratch/Users/hoto7260/nextflow_out/Bidir_Count/e_and_o/test_%j.out
 #SBATCH --error=/scratch/Users/hoto7260/nextflow_out/Bidir_Count/e_and_o/test_%j.out
-#SBATCH --time=24:00:00
+#SBATCH --time=00:15:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=5
 #SBATCH --mem=1G
-#SBATCH --partition long
+#SBATCH --partition short
 #SBATCH --mail-type=FAIL,END
 #SBATCH --mail-user=hoto7260@colorado.edu
+
+## EDIT THIS PATH ##
+SRC_DIR=~/src/Bidir_Counting_Analysis/tests/
+
 
 module load samtools/1.8
 module load bedtools/2.28.0
@@ -22,16 +26,17 @@ source activate /Users/hoto7260/miniconda3/envs/python39
 # numpy  1.25.2
 # pandas 2.0.3
  
- ## Clear the wokring directory
- work_dir=/scratch/Users/hoto7260/nextflow_out/Bidir_Count/tmp
- rm -rf ${work_dir}
+## Clear the wokring directory
+work_dir=${SRC_DIR}/tmp
+rm -rf ${work_dir}
  
  ## Run your code
+
 NXF_DEBUG=1 /scratch/Shares/dowell/dbnascent/pipeline_assets/nextflow run /Users/hoto7260/src/Bidir_Counting_Analysis/main.nf \
- --mmfiltbams /scratch/Users/hoto7260/Bidir_Counting_Test/mmfiltbams/ \
- --cons_file /scratch/Users/hoto7260/Bidir_Counting_Test/cons_chr21_test.bed \
+ --mmfiltbams ${SRC_DIR}/mmfiltbams/ \
+ --cons_file ${SRC_DIR}/cons_chr21_test.bed \
  -work-dir ${work_dir} \
- --outdir /scratch/Users/hoto7260/nextflow_out/Bidir_Count/Test/ \
+ --outdir ${SRC_DIR}/out/ \
  --prefix Testing \
- --date 2.10.25 \
- --count_type "SIMPLE"
+ --date 8.29.25 \
+ --get_fixed_genecounts "FALSE"
