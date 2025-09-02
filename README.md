@@ -1,7 +1,7 @@
 # Bidir_Counting_Analysis
 This repository is a generalizable pipeline for getting bidirectional and gene counts from Nascent sequencing data while accounting for overlapping transcription, and the different transcriptional patterns of gene 5prime bidirectionals and enhancers. The counts (suggested) or combined files can also be fed directly into [TFEA](https://github.com/Dowell-Lab/TFEA). Details of the pipeline can be found in "How it Works." 
 
-## Requirements:
+## Installing and Testing:
 * Nextflow (version >= 19.10.0, but the latest versions also appear to cause difficulties) You can easily run an older version of nextflow without reinstalling by specifying in the nextflow command, i.e. NXF_VER=19.10.0 nextflow run .... We tested using this nextflow version 20.07.1.5412.
 * bedtools (2.28.0 tested)
 * samtools (1.8 tested)
@@ -27,6 +27,27 @@ This repository is a generalizable pipeline for getting bidirectional and gene c
       conda activate python39
       conda install python=3.9.17 numpy=1.25.2 pandas=2.0.3
       ```
+
+#### Testing it
+Run the `example_run.sbatch` and look in tests/out/ to double check that you can run it successfully. 
+
+You must make the following edits to the file:
+1. The error and output paths (lines 3 & 4)
+2. The variable SRC_DIR (point based on where you house this repository)
+3. The path to the conda environment (line 24)
+
+You should get the following output in tests/out:
+    * counts/
+        * fixed_genes_Testing_8.29.25_counts.txt
+        * fixed_genetss_Testing_8.29.25_counts.txt
+        * fixed_nongenetss_Testing_8.29.25_counts.txt
+        * fixed_MU_genetss_Testing_8.29.25_counts.txt
+        * fixed_MU_nongenetss_Testing_8.29.25_counts.txt
+    * regions/
+        * nontss_bid_Testing_8.29.25_forTFEA.bed
+        * tss_bid_Testing_8.29.25_forTFEA.bed
+        * tss_bid_Testing_8.29.25.txt
+        
 
  
 -------------------------------------------------------------
@@ -66,35 +87,16 @@ Analysis Options:
     --tss_win                      Window added from mu to overlap bidirectionals with gene TSS windows to identify 5' gene bidirectionals (default=25)
     --count_limit_genes            Minimum coverage (fraction of gene covered by reads) required to consider a gene transcribed and possibly convoluting transcription (default=0.7)
     --count_limit_bids             Minimum total counts summed from all samples required to consider a bidirectional possibly convoluting gene transcription (default=30)
-    --get_fixed_genecounts         Whether or not you want to get counts for genes after removing strongly transcribed bidirectionals overlapping genes
+    --get_fixed_genecounts         Whether or not you want to get counts for genes after removing strongly transcribed bidirectionals overlapping genes (if don't want then make "FALSE")
 
 Files to Use (with Defaults):
     --genome                       Only needed if --crams is used (default is /scratch/Shares/dowell/genomes/hg38/hg38.fa)
     --tss_1kb_file                 sorted bed file with 500bp region +/- around TSS of all genes (including putatives) (Default in assets of github repo)
     --gene_put_file                sorted bed file of all gene isoforms (Default in assets of github repo)
     --gene_put_10kbdntm_file       sorted bed file of the termination site of gene isoforms to 10kb downstream (Default in assets of github repo)
-    --gene_count_file              sorted bed file of 5prime truncated genes over which you want to count
+    --gene_count_file              sorted bed file of 5prime truncated genes over which you want to count 
 ```
-
-### Testing
-
-Run the `example_run.sbatch` found in tests/ to double check that you can run it successfully. 
-
-You must make the following edits to the file:
-1. The error and output paths (lines 3 & 4)
-2. The variable SRC_DIR (point based on where you house this repository)
-3. The path to the conda environment (line 24)
-
-You should get the following output in tests/out:
-    * counts/
-        * fixed_genes_Testing_8.29.25_counts.txt
-        * fixed_genetss_Testing_8.29.25_counts.txt
-        * fixed_nongenetss_Testing_8.29.25_counts.txt
-    * regions/
-        * nontss_bid_Testing_8.29.25_forTFEA.bed
-        * tss_bid_Testing_8.29.25_forTFEA.bed
-        * tss_bid_Testing_8.29.25.txt
-        
+**WARNING** Including getting the fixed genecounts can take awhile due to using bedtools coverage. 
 
 
 ### Example Run on Fiji
