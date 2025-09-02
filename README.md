@@ -139,6 +139,17 @@ source activate /Users/hoto7260/miniconda3/envs/python39
  --date 3.26.25 \
  --count_limit_bids 60 \
  --gene_put_file /Users/hoto7260/src/Bidir_Counting_Analysis/assets/hg38_refseq_diff53prime_with_putatives_fixnames_sort2.sorted.bed
+
+# OR WITH BAMS and no fixed counts for genes
+/scratch/Shares/dowell/dbnascent/pipeline_assets/nextflow run /Users/hoto7260/src/Bidir_Counting_Analysis/main.nf \
+ --mmfiltbams "/scratch/Users/hoto7260/nextflow_out/Nascent/ADP_smAECs_03-4-24/mapped/mmfiltbams/*.bam" \
+ --cons_file /Users/hoto7260/projects/Resp_Env/Comb_UPM_WSP_ADP/mumerge/out/UPM_WSP_ADP_tfit_MUMERGE.bed \
+ -work-dir ${work_dir} \
+ --outdir /scratch/Users/hoto7260/Resp_Env/Comb_UPM_WSP_ADP/ADP \
+ --prefix CUWA_ADP \
+ --date 3.26.25 \
+ --count_limit_bids 60 \
+  --get_fixed_genecounts "FALSE"
 ```
 
 ## How it works?

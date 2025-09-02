@@ -1168,7 +1168,8 @@ if (params.get_fixed_genecounts == "TRUE") {
     """
   }
 
-  process GetFixedGeneCounts {
+
+process GetFixedGeneCounts {
     println "[Log 6]: Getting fixed gene counts"
 
    publishDir "${params.outdir}" , mode: 'copy',

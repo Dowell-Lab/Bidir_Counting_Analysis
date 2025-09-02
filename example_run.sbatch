@@ -33,7 +33,7 @@ rm -rf ${work_dir}
  ## Run your code
 
 NXF_DEBUG=1 /scratch/Shares/dowell/dbnascent/pipeline_assets/nextflow run ${SRC_DIR}/main.nf \
- --mmfiltbams ${SRC_DIR}/tests/mmfiltbams/*.bam \
+ --mmfiltbams "${SRC_DIR}/tests/mmfiltbams/*.bam" \
  --cons_file ${SRC_DIR}/tests/cons_chr21_test.bed \
  -work-dir ${work_dir} \
  --outdir ${SRC_DIR}/tests/out/ \
