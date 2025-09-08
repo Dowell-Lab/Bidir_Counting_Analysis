@@ -227,6 +227,7 @@ if (params.crams) {
       output:
         tuple val(prefix), file("${prefix}.mmfilt.sorted.bam"), file("${prefix}.mmfilt.sorted.bam.bai") into sorted_mmfilt_bam_file_genecount
         tuple val(prefix), file("${prefix}.mmfilt.sorted.bam"), file("${prefix}.mmfilt.sorted.bam.bai") into sorted_mmfilt_bam_file_bidcount
+        tuple val(prefix), file("${prefix}.mmfilt.sorted.bam"), file("${prefix}.mmfilt.sorted.bam.bai") into sorted_mmfilt_bam_file_mucount
         tuple val(prefix), file("${prefix}.mmfilt.sorted.bam"), file("${prefix}.mmfilt.sorted.bam.bai") into sorted_mmfilt_bam_file_fingenecount
 
       script:
@@ -271,6 +272,8 @@ if (params.crams) {
         sorted_mmfilt_bam_file_genecount
         tuple val(prefix), file("${prefix}.mmfilt.sorted.bam"), file("${prefix}.mmfilt.sorted.bam.bai") into 
         sorted_mmfilt_bam_file_bidcount
+        tuple val(prefix), file("${prefix}.mmfilt.sorted.bam"), file("${prefix}.mmfilt.sorted.bam.bai") into 
+        sorted_mmfilt_bam_file_mucount
         tuple val(prefix), file("${prefix}.mmfilt.sorted.bam"), file("${prefix}.mmfilt.sorted.bam.bai") into 
         sorted_mmfilt_bam_file_fingenecount
 
@@ -853,6 +856,10 @@ get_GTF_lines <- function(close_df, orig_close_df, bids_keep) {
   if ("${params.tfea}" == "TRUE") {
     prefix = "${params.prefix}"
     date = "${params.date}"
+    # get the 1500bp wwindows
+    bids\$mu <- as.integer((as.numeric(bids\$Start) + as.numeric(bids\$End))/2)
+    bids\$Start <- bids\$mu - 1500
+    bids\$End <- bids\$mu + 1500
       tss <- bids[bids\$GeneID %in% over_filt\$BidID,]
       nontss <- bids[!bids\$GeneID %in% over_filt\$BidID,]
       cat("\tNumber total Bids after filtering:", nrow(bids), "\t\tNumber TSS:", nrow(tss), "\tNumber NonTSS:", nrow(nontss))
