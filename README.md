@@ -69,8 +69,8 @@ nextflow run main.nf \
 ```
 Required arguments:
     --cons_file                   bed file with consensus bidirectionals/tREs of interest where the midpoint of the 2nd & 3rd columns is closest to mu (often with muMerge)
-    --mmfiltbams                  Directory pattern for multimap filtered bams: /project/*.mmfilt.sorted.bam (Required if --bams or --crams not specified).
-    --crams                       Directory pattern for cram files: /project/*.sorted.cram (Required if --mmfiltbams or --bams not specified).
+    --mmfiltbams                  Directory pattern for multimap filtered bams: "/project/*.mmfilt.sorted.bam" (Required if --bams or --crams not specified).
+    --crams                       Directory pattern for cram files: "/project/crams" (Required if --mmfiltbams or --bams not specified).
     --bams                        Directory pattern for bam files: /project/*.sorted.bam (Required if --mmfiltbams or --crams not specified
     -workdir                     Working directory where all intermediate files are saved by Nextflow. (You'll probably want to clear this after running everything with no errors)
 
@@ -226,6 +226,14 @@ Nascent transcription occurs outside the bounds of gene annotations. Bidirection
 
 
 ## Troubleshooting
+* Is it "finishing" in 15 seconds but nothing is output?
+    - For some reason, this version of nextflow is EXTREMELY picky on how a folder or set of files is directed to it as input. Therefore, make sure you are using the following notation.
+      ```
+      # for crams just point to the folder with quotations
+      --crams "/scratch/Users/hoto7260/tmp/crams/"
+      # for mmfiltbams point to the folder WITH an asterick for the bams
+      --mmfiltbams "/scratch/Users/hoto7260/tmp/mmfiltbams/*.bam"
+      ```
 * Error about improper sorting of a bed or bam file?
     - Sometimes the bam file is sorted in a different order than the bed file (most commonly a difference of chr1, chr2, ... chr10 vs chr1, chr10, ... chr2). One of the steps uses bedtools coverage to calculate coverage of genes. The default bed file for this is "assets/hg38_refseq_diff53prime_with_putatives_fixnames.sorted.bed" but if the above is occuring, try using "assets/hg38_refseq_diff53prime_with_putatives_fixnames_sort2.sorted.bed" in --gene_put_file. This file has the chr1,chr2 ... ordering. If this still does not work, you can reorder the bed file to match the bam by using the -g option of bedtools sort where the -g refers to a file of the chromosomes in the order used in the fasta file used to produce your bam.
  
