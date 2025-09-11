@@ -74,6 +74,9 @@ Required arguments:
     --bams                        Directory pattern for bam files: /project/*.sorted.bam (Required if --mmfiltbams or --crams not specified
     -workdir                     Working directory where all intermediate files are saved by Nextflow. (You'll probably want to clear this after running everything with no errors)
 
+Intermediate Files:
+    --geneputcounts                 Bedtools coverage counts of the genes (can have it use this instead of generating it via the pipeline)
+
 Save options:
     --outdir                       Specifies where to save the output from the nextflow run.
     --prefix                       Prefix used in output files (default = "count_project")  
@@ -94,7 +97,8 @@ Files to Use (with Defaults):
     --tss_1kb_file                 sorted bed file with 500bp region +/- around TSS of all genes (including putatives) (Default in assets of github repo)
     --gene_put_file                sorted bed file of all gene isoforms (Default in assets of github repo)
     --gene_put_10kbdntm_file       sorted bed file of the termination site of gene isoforms to 10kb downstream (Default in assets of github repo)
-    --gene_count_file              sorted bed file of 5prime truncated genes over which you want to count 
+    --gene_count_file              sorted bed file of 5prime truncated genes over which you want to count
+    --gene_order_file              sizes of chromosomes in the order of the gene_put_file (default is in assets of github repo: uses hg38)
 ```
 **WARNING** Including getting the fixed genecounts can take awhile due to using bedtools coverage. 
 

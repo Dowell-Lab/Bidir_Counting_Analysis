@@ -38,6 +38,9 @@ def helpMessage() {
         --bams                        Directory pattern for bam files: /project/bams/ (Required if --mmfiltbams or --crams not specified).
         --workdir                     Nextflow working directory where all intermediate files are saved.
 
+    Intermediate Files:
+        --geneputcounts                 Bedtools coverage counts of the genes
+
     Save options:
         --outdir                       Specifies where to save the output from the nextflow run.
         --prefix                       Prefix used in output files (default = "count_project")  
@@ -53,8 +56,6 @@ def helpMessage() {
         --count_limit_bids             Minimum total counts summed from all samples required to consider a bidirectional possibly convoluting gene transcription (default=30)
         --get_fixed_genecounts         Whether or not you want to get counts for genes after removing strongly transcribed bidirectionals overlapping genes
 
-    Intermediate Files:
-        --geneputcounts                 Bedtools coverage counts of the genes
 
     Files to Use (with Defaults):
         --genome                       Only needed if --crams is used (default is /scratch/Shares/dowell/genomes/hg38/hg38.fa)
