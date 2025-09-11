@@ -53,13 +53,18 @@ def helpMessage() {
         --count_limit_bids             Minimum total counts summed from all samples required to consider a bidirectional possibly convoluting gene transcription (default=30)
         --get_fixed_genecounts         Whether or not you want to get counts for genes after removing strongly transcribed bidirectionals overlapping genes
 
+    Intermediate Files:
+        --geneputcounts                 Bedtools coverage counts of the genes
+
     Files to Use (with Defaults):
         --genome                       Only needed if --crams is used (default is /scratch/Shares/dowell/genomes/hg38/hg38.fa)
         --tss_1kb_file                 sorted bed file with 500bp region +/- around TSS of all genes (including putatives) (Default in assets of github repo)
         --gene_put_file                sorted bed file of all gene isoforms (Default in assets of github repo)
         --gene_put_10kbdntm_file       sorted bed file of the termination site of gene isoforms to 10kb downstream (Default in assets of github repo)
         --gene_count_file              sorted bed file of 5prime truncated genes over which you want to count
+        --gene_order_file              sizes of chromosomes in the order of the gene_put_file (default is in assets of github repo: choromosome sizes)
     """.stripIndent()
+        
 }
 
 nextflow.enable.dsl=1
@@ -110,9 +115,12 @@ params.count_limit_bids = 30
 
 params.genome = '/scratch/Shares/dowell/genomes/hg38/hg38.fa'
 params.tss_1kb_file = "${workflow.projectDir}/assets/hg38_TSS1kb_refseq_diff53prime_with_putatives.bed"
-params.gene_put_file = "${workflow.projectDir}/assets/hg38_refseq_diff53prime_with_putatives_fixnames.sorted.bed"
+params.gene_put_file = "${workflow.projectDir}/assets/hg38_refseq_diff53prime_with_putatives_fixnames_sort2.sorted.bed"
 params.gene_put_10kbdntm_file = "${workflow.projectDir}/assets/hg38_refseq_diff53prime_10kbdwnstm_with_putatives_fixnames.sorted.bed"
 params.gene_count_file = "${workflow.projectDir}/assets/hg38_refseq_diff53prime_5ptrunc_counting.sorted.bed"
+params.geneputcounts = ''
+params.gene_order_file = "${workflow.projectDir}/assets/hg38.chrom.sizes"
+
 
 params.version = '0.1'
 
@@ -422,6 +430,10 @@ process GetOverlaps {
 
 println "[Log 3]: Getting transcription levels of genes to roughly establish which are transcribed"
 // Get the preliminary coverage of putative genes to roughly establish which ones are transcribed
+if (params.geneputcounts) {
+    Channel.fromPath(params.geneputcounts)
+        .into { put_gene_counts_getbids; put_gene_counts_fix; put_gene_counts_getgenes }
+} else {
 process CountPutGenes {
 
   cpus 1
@@ -441,16 +453,17 @@ process CountPutGenes {
     
   script:
   """
-  # Get the genome file to use (order of chromosomes)
+  # Get the genome file to use (order of chromosomes with the sizes in tab-delimited format)
   #cut --fields=1 ${params.gene_put_file} | uniq > chrom_order.txt
   #bedtools coverage -s -sorted -g chrom_order.txt -a ${params.gene_put_file} -b ./*mmfilt.sorted.bam > put_gene_counts.txt
     if [ -d "mmfiltbams" ]; then
-        bedtools coverage -s -a ${params.gene_put_file} -b ./mmfiltbams/*.bam > put_gene_counts.txt
+        bedtools coverage -s -sorted -g ${params.gene_order_file} -a ${params.gene_put_file} -b ./mmfiltbams/*.bam > put_gene_counts.txt
     else
-        bedtools coverage -s -a ${params.gene_put_file} -b ./*mmfilt.sorted.bam > put_gene_counts.txt
+        bedtools coverage -s -sorted -g ${params.gene_order_file} -a ${params.gene_put_file} -b ./*mmfilt.sorted.bam > put_gene_counts.txt
     fi
   
   """
+}
 }
 
 // PART 4: Filter Bidirectionals, Get Regions (TSS and tREs)
