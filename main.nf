@@ -215,8 +215,10 @@ if (params.crams) {
                   .fromPath("${params.crams}/*.sorted.cram")
                   .map { file -> tuple(file.baseName.replace('.sorted', ''), file) }
 
-
+    println "CRAM param: $params.crams/*.sorted.cram"
+    println "CRAM files: $cramfiles"
     //cramfiles.view()
+    //println "CRAM files vieww: cramfiles.view()"
 
     process cram_to_mmfiltbam {
       cpus 16
@@ -257,43 +259,43 @@ if (params.crams) {
     println "[Log 1]: Working directory ... $workflow.workDir"
     println "[Log 1]: Output directory ... $params.outdir"
 
-    cramfiles = Channel
+    bamfiles = Channel
                   .fromPath("${params.bams}/*.sorted.bam")
                   .map { file -> tuple(file.baseName.replace('.sorted', ''), file) }
+    println "Bam param: $params.bams/*.sorted.bam"
+    println "Bam files: $bamfiles"
+    //bamfiles.view()
 
     process bam_to_mmfiltbam {
-        cpus 16
-        queue 'short'
-        memory '5 GB'
-        time '1h30m'
-        tag "$prefix"
+      cpus 16
+      queue 'short'
+      memory '5 GB'
+      time '1h30m'
+      tag "$prefix"
 
-        publishDir "${params.outdir}" , mode: 'copy',
-        saveAs: {filename ->
+      publishDir "${params.outdir}" , mode: 'copy',
+      saveAs: {filename ->
               if ((filename == "${prefix}.mmfilt.sorted.bam") & (params.savemmfiltbams == 'TRUE'))    "mmfiltbams/${prefix}.mmfilt.sorted.bam"
               else null
              }
-        input:
+      input:
         tuple val(prefix), file(bam) from bamfiles
 
-        output:
-        tuple val(prefix), file("${prefix}.mmfilt.sorted.bam"), file("${prefix}.mmfilt.sorted.bam.bai") into 
-        sorted_mmfilt_bam_file_genecount
-        tuple val(prefix), file("${prefix}.mmfilt.sorted.bam"), file("${prefix}.mmfilt.sorted.bam.bai") into 
-        sorted_mmfilt_bam_file_bidcount
-        tuple val(prefix), file("${prefix}.mmfilt.sorted.bam"), file("${prefix}.mmfilt.sorted.bam.bai") into 
-        sorted_mmfilt_bam_file_mucount
-        tuple val(prefix), file("${prefix}.mmfilt.sorted.bam"), file("${prefix}.mmfilt.sorted.bam.bai") into 
-        sorted_mmfilt_bam_file_fingenecount
+      output:
+        tuple val(prefix), file("${prefix}.mmfilt.sorted.bam"), file("${prefix}.mmfilt.sorted.bam.bai") into sorted_mmfilt_bam_file_genecount
+        tuple val(prefix), file("${prefix}.mmfilt.sorted.bam"), file("${prefix}.mmfilt.sorted.bam.bai") into sorted_mmfilt_bam_file_bidcount
+        tuple val(prefix), file("${prefix}.mmfilt.sorted.bam"), file("${prefix}.mmfilt.sorted.bam.bai") into sorted_mmfilt_bam_file_mucount
+        tuple val(prefix), file("${prefix}.mmfilt.sorted.bam"), file("${prefix}.mmfilt.sorted.bam.bai") into sorted_mmfilt_bam_file_fingenecount
 
-        script:
-        """
+      script:
+      """
         samtools view -@ 16 -h -q 1 ${bam} | \
                grep -P '(NH:i:1|^@)' | \
                samtools view -h -b > ${prefix}.mmfilt.sorted.bam
         samtools index ${prefix}.mmfilt.sorted.bam ${prefix}.mmfilt.sorted.bam.bai
       """
     }
+
 
 } else {
     println "[Log 1]: Using the multi-mapped filtered bams from .... $params.mmfiltbams"

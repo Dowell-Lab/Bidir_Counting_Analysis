@@ -38,4 +38,13 @@ NXF_DEBUG=1 /scratch/Shares/dowell/dbnascent/pipeline_assets/nextflow run ${SRC_
  -work-dir ${work_dir} \
  --outdir ${SRC_DIR}/tests/out/ \
  --prefix Testing \
- --date 8.29.25 
+ --date 9.15.25 
+
+# To optionally check that using bams works
+#NXF_DEBUG=1 /scratch/Shares/dowell/dbnascent/pipeline_assets/nextflow run ${SRC_DIR}/main.nf \
+# --bams "${SRC_DIR}/tests/mmfiltbams/" \
+# --cons_file ${SRC_DIR}/tests/cons_chr21_test.bed \
+# -work-dir ${work_dir} \
+# --outdir ${SRC_DIR}/tests/out/ \
+# --prefix Testing \
+# --date 9.15.25 
