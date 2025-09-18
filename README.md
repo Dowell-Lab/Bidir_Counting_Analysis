@@ -71,20 +71,19 @@ You must make the following edits to the file:
 3. The path to the conda environment (line 24)
 
 You should get the following output in tests/out:
-    * counts/
-        * fixed_genes_Testing_8.29.25_counts.txt
-        * fixed_genetss_Testing_8.29.25_counts.txt
-        * fixed_nongenetss_Testing_8.29.25_counts.txt
-        * fixed_MU_genetss_Testing_8.29.25_counts.txt
-        * fixed_MU_nongenetss_Testing_8.29.25_counts.txt
-    * regions/
-        * nontss_bid_Testing_8.29.25_forTFEA.bed
-        * tss_bid_Testing_8.29.25_forTFEA.bed
-        * tss_bid_Testing_8.29.25.txt
+* counts/
+    * fixed_genes_Testing_8.29.25_counts.txt
+    * fixed_genetss_Testing_8.29.25_counts.txt
+    * fixed_nongenetss_Testing_8.29.25_counts.txt
+    * fixed_MU_genetss_Testing_8.29.25_counts.txt
+    * fixed_MU_nongenetss_Testing_8.29.25_counts.txt
+* regions/
+    * nontss_bid_Testing_8.29.25_forTFEA.bed
+    * tss_bid_Testing_8.29.25_forTFEA.bed
+    * tss_bid_Testing_8.29.25.txt
         
 
  
--------------------------------------------------------------
 <H2 id="Running">Running Bidir_Counting_Flow</H2>
 
 <H3 id="Usage">Usage</H3>
@@ -194,7 +193,6 @@ source activate /Users/hoto7260/miniconda3/envs/python39
   --get_fixed_genecounts "FALSE"
 ```
 
--------------------------------------------------------------
 <H2 id="How">How it Works</H2>
 
 ![screenshot](README_figs/MU_Counts_Pipeline_biorender.png)
@@ -222,7 +220,6 @@ Nascent transcription occurs outside the bounds of gene annotations. Bidirection
 * **Solution**: If get_fixed_genecounts=TRUE, the count regions of bidirectionals with reads > COUNT_LIMIT_BIDS after deconvolution are removed from gene regions over which to be counted.
 
 
--------------------------------------------------------------
 <H2 id="IO">Understanding Inputs, Outputs, and Parameters</H2>
 
 <H3 id="Inputs">Major inputs</H3>
@@ -272,7 +269,6 @@ Nascent transcription occurs outside the bounds of gene annotations. Bidirection
 
 
 
--------------------------------------------------------------
 <H2 id="Troubleshooting">Troubleshooting</H2>
 
 * Is it "finishing" in 15 seconds but nothing is output?
