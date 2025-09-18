@@ -284,7 +284,7 @@ Nascent transcription occurs outside the bounds of gene annotations. Bidirection
  
  
 <H2 id="Citing">Citing</H2>
-If using this pipeline, please cite [Improving confidence of differential transcription calls in enhancers](https://doi.org/10.1101/2025.09.12.675852)
+If using this pipeline, please cite <A href="https://doi.org/10.1101/2025.09.12.675852">Improving confidence of differential transcription calls in enhancers</A>
 
 <H2 id="Contact">Contact Info</H2>
 If you have questions, reach out to hope.townsend@colorado.edu.
