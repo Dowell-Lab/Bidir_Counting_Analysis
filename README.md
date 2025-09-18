@@ -1,7 +1,31 @@
-# Bidir_Counting_Analysis
-This repository is a generalizable pipeline for getting bidirectional and gene counts from Nascent sequencing data while accounting for overlapping transcription, and the different transcriptional patterns of gene 5prime bidirectionals and enhancers. The counts (suggested) or combined files can also be fed directly into [TFEA](https://github.com/Dowell-Lab/TFEA). Details of the pipeline can be found in "How it Works." 
+<H1>Bidirectional & Gene Counting Analysis - Flow </H1>
+This repository is a generalizable pipeline for getting bidirectional and gene counts from Nascent sequencing data while accounting for overlapping transcription, and the different transcriptional patterns of gene 5prime bidirectionals and enhancers. The counts (suggested) or combined files can also be fed directly into [TFEA](https://github.com/Dowell-Lab/TFEA). Details of the pipeline can be found in <A href="#How">How it Works</A>. 
 
-## Installing and Testing:
+
+<H2 id="TableOfContents">Table of Contents</H2>
+
+1. <A href="#InstallTest">Installing and Testing</A>
+   - <A href="#Requirements">Requirements</A>
+   - <A href="#Installation">Installation</A>
+   - <A href="#Testing">Testing It</A>
+2. <A href="#Running">Running Bidir_Count_Flow</A>
+   - <A href="#Usage">Usage</A>
+   - <A href="#Arguments">Arguments</A>
+   - <A href="#Example">Example Run on Fiji</A>
+3. <A href="#How">How it Works</A>
+4. <A href="#IO">Understanding Inputs, Outputs, and Parameters</A>
+   - <A href="#Input">Input</A>
+   - <A href="#Parameters">Parameters</A>
+   - <A href="#Output">Output</A>
+   - <A href="#Difference">Difference between Mu_Counts and Simple Counts</A>
+5. <A href="#Troubleshooting">Troubleshooting and Common Problems</A>
+6. <A href="#Citing">Citing</A>
+7. <A href="#Contact">Contact Info</A>
+
+<H2 id="InstallTest">Installing and Testing</H2>
+
+<H3 id="Requirements">Requirements</H3>
+
 * Nextflow (version >= 19.10.0, but the latest versions also appear to cause difficulties) You can easily run an older version of nextflow without reinstalling by specifying in the nextflow command, i.e. NXF_VER=19.10.0 nextflow run .... We tested using this nextflow version 20.07.1.5412.
 * bedtools (2.28.0 tested)
 * samtools (1.8 tested)
@@ -27,9 +51,19 @@ This repository is a generalizable pipeline for getting bidirectional and gene c
       conda activate python39
       conda install python=3.9.17 numpy=1.25.2 pandas=2.0.3
       ```
+<H3 id="Installation">Installation</H3>
 
-#### Testing it
-Run the `example_run.sbatch` and look in tests/out/ to double check that you can run it successfully. 
+You can access the repository from Github:
+```
+git clone git@github.com:Dowell-Lab/Bidir_Counting_Analysis.git
+cd Bidir_Counting_Analysis
+```
+
+Be sure to stay up to date with any debugging or code changes with `git pull`!
+
+<H3 id="Testing">Testing It!</H3>
+
+Run the `example_run.sbatch` and look in tests/out/ to double check that you can run it successfully. It allows you to test with multi-mapped filtered bams or just plain bams.
 
 You must make the following edits to the file:
 1. The error and output paths (lines 3 & 4)
@@ -51,28 +85,31 @@ You should get the following output in tests/out:
 
  
 -------------------------------------------------------------
-## Running Bidir_Counting_Flow
-### Usage
-* **Note**: -work-dir is a nextflow argument, not main.nf argument, hence make sure it is done as -work-dir (not --work-dir). Otherwise, it will create a working directory in the folder where you run the command.
+<H2 id="Running">Running Bidir_Counting_Flow</H2>
+
+<H3 id="Usage">Usage</H3>
+
+* **Note**: -work-dir is a nextflow argument and refers to what most people think of as **TEMPORARAY DIRECTORY**. It is not a main.nf argument and therefore the key-term must be used and you must make sure it is done as -work-dir (not --work-dir). Otherwise, it will create a working (temporary) directory in the folder where you run the command.
 ```
 nextflow run main.nf \
  --mmfiltbams path/to/mmfiltbams \
  --cons_file path/to/consensus/regions \
- -work-dir /path/to/working/directory \
+ -work-dir /path/to/temporary/directory \
  --outdir /path/to/output/directory \
  --prefix desired_prefix \
  --count_win 500 \
  --date 2.11.25 
 ```
 
-### Arguments
+<H3 id="Arguments">Arguments</H3>
+
 ```
 Required arguments:
     --cons_file                   bed file with consensus bidirectionals/tREs of interest where the midpoint of the 2nd & 3rd columns is closest to mu (often with muMerge)
     --mmfiltbams                  Directory pattern for multimap filtered bams: "/project/*.mmfilt.sorted.bam" (Required if --bams or --crams not specified).
     --crams                       Directory pattern for cram files: "/project/crams" (Required if --mmfiltbams or --bams not specified).
     --bams                        Directory pattern for bam files: /project/*.sorted.bam (Required if --mmfiltbams or --crams not specified
-    -workdir                     Working directory where all intermediate files are saved by Nextflow. (You'll probably want to clear this after running everything with no errors)
+    -workdir                     TEMPORARY directory where all intermediate files are saved by Nextflow. (You'll probably want to clear this after running everything with no errors)
 
 Intermediate Files:
     --geneputcounts                 Bedtools coverage counts of the genes (can have it use this instead of generating it via the pipeline)
@@ -103,7 +140,8 @@ Files to Use (with Defaults):
 **WARNING** Including getting the fixed genecounts can take awhile due to using bedtools coverage. 
 
 
-### Example Run on Fiji
+<H3 id="Example">Example Run on Fiji</H3>
+
 ```
 #!/bin/bash
 #SBATCH --job-name=BidirCountFlow_WSP
@@ -156,7 +194,9 @@ source activate /Users/hoto7260/miniconda3/envs/python39
   --get_fixed_genecounts "FALSE"
 ```
 
-## How it works?
+-------------------------------------------------------------
+<H2 id="How">How it Works</H2>
+
 ![screenshot](README_figs/MU_Counts_Pipeline_biorender.png)
 
 Nascent transcription occurs outside the bounds of gene annotations. Bidirectionals are often near genes and other bidirectionals, making capturing their transcription without capturing noise difficult. Therefore, this pipeline addresses these problems with the following solutions:
@@ -175,21 +215,25 @@ Nascent transcription occurs outside the bounds of gene annotations. Bidirection
 
 3B. Address overlapping transcription from bidirectionals with other bidirectionals:
 * **Significance**: Bidirectionals can often be close to one another so that a fixed region length captures multiple at once. However, bidirectional transcript lengths can also widely vary. 
-* **Solution**: "MU_COUNTS" fixes this as described further in "More about Inputs and Outputs."
+* **Solution**: "MU_COUNTS" fixes this as described further in <A href="#Difference">Difference between Mu_Counts and Simple Counts</A>.
 
 4 . Address overlapping transcription from bidirectionals within genes:
 * **Significance**: [Azofeifa et al](https://ieeexplore.ieee.org/abstract/document/7393555) showed that differential gene expression analysis can be largely disrupted by counting capturing differences between bidirectionals within genes rather than the genes themselves.
 * **Solution**: If get_fixed_genecounts=TRUE, the count regions of bidirectionals with reads > COUNT_LIMIT_BIDS after deconvolution are removed from gene regions over which to be counted.
 
 
-## More about Inputs and Outputs
-### Two Major Inputs
+-------------------------------------------------------------
+<H2 id="IO">Understanding Inputs, Outputs, and Parameters</H2>
+
+<H3 id="Inputs">Major inputs</H3>
+
 * **MMFILTBAMS**
-    * These are bams that have already been filtered for multimapped reads. If you do not have these, you can instead use the crams or bams directory.
+    * These are bams that have already been filtered for multimapped reads. If you do not have these, you can instead provide the crams or bams directory with `--crams` or `--bams`.
 * **CONS_FILE**
     * This is a bed file (tab-delimited with no header) with a minimum of three columns: Chromosome, start, end. The midpoint between the start and end should be the estimated center of the bidirectional (transcription start site of the bidirectional). A robust way to get these sites is running [muMerge](https://github.com/Dowell-Lab/mumerge). 
 
-### Parameters
+<H3 id="Parameters">Parameters</H3>
+
 * **COUNT_WIN**
     * This is the window around the midpoint of a bidirectional used to count it. If using count_type-"SIMPLE", thisx2 will be the total region length counted over. If using count_type="MU_COUNTS", thisx2 will be the  region length counted over unless there is overlapping transcription from another bidirection.
     * (new_start=mu-COUNT_WIN & new_stop=mu+COUNT_WIN)
@@ -205,7 +249,8 @@ Nascent transcription occurs outside the bounds of gene annotations. Bidirection
     * The number of reads required to be overlapping a bidirectional (only strands not convoluted by gene transcription) for it to possibly be convoluting the transcription counts of a gene. 
     * Note: The total reads is based on ALL provided bams. 30 (default) has served well for 4-6 bams with 40M reads, but may be low if using more samples than that and high if using fewer. 
 
-### Output 
+<H3 id="Output">Output</H3>
+
 * mmfiltbams/ (**if savemmfiltbams**)
 * regions/
     * TSS bidirectionals: `tss_bid_${prefix}_${date}.txt`
@@ -218,8 +263,7 @@ Nascent transcription occurs outside the bounds of gene annotations. Bidirection
     * (SIMPLE) fixed counts for the Gene TSS bidirectionals: `fixed_genetss_${prefix}_${date}_counts.txt`
     * (SIMPLE) fixed counts for the Non Gene TSS bidirectionals: `fixed_nongenetss_${prefix}_${date}_counts.txt` 
 
-
-#### Difference between MU_COUNTS and SIMPLE
+<H3 id="Difference">Difference between MU_Counts and Simple Counts</H3>
     
 * The "SIMPLE" approach uses a fixed window (COUNT_WIN) around the centers of the consensus regions providing without worrying about neighboring bidirectionals, and considering the entire region for positive and negative counts (doesn't split into transcripts).
 * The "MU_COUNTS" approach uses a fixed window (COUNT_WIN) for the region of the tRE BUT has two additions (Image below to help visualize):
@@ -228,12 +272,13 @@ Nascent transcription occurs outside the bounds of gene annotations. Bidirection
 
 
 
+-------------------------------------------------------------
+<H2 id="Troubleshooting">Troubleshooting</H2>
 
-## Troubleshooting
 * Is it "finishing" in 15 seconds but nothing is output?
     - For some reason, this version of nextflow is EXTREMELY picky on how a folder or set of files is directed to it as input. Therefore, make sure you are using the following notation.
       ```
-      # for crams just point to the folder with quotations
+      # for crams (and bams) just point to the folder with quotations
       --crams "/scratch/Users/hoto7260/tmp/crams/"
       # for mmfiltbams point to the folder WITH an asterick for the bams
       --mmfiltbams "/scratch/Users/hoto7260/tmp/mmfiltbams/*.bam"
@@ -241,10 +286,11 @@ Nascent transcription occurs outside the bounds of gene annotations. Bidirection
 * Error about improper sorting of a bed or bam file?
     - Sometimes the bam file is sorted in a different order than the bed file (most commonly a difference of chr1, chr2, ... chr10 vs chr1, chr10, ... chr2). One of the steps uses bedtools coverage to calculate coverage of genes. The default bed file for this is "assets/hg38_refseq_diff53prime_with_putatives_fixnames.sorted.bed" but if the above is occuring, try using "assets/hg38_refseq_diff53prime_with_putatives_fixnames_sort2.sorted.bed" in --gene_put_file. This file has the chr1,chr2 ... ordering. If this still does not work, you can reorder the bed file to match the bam by using the -g option of bedtools sort where the -g refers to a file of the chromosomes in the order used in the fasta file used to produce your bam.
  
-## Citing
-If using this pipeline, please cite ...
+ 
+<H2 id="Citing">Citing</H2>
+If using this pipeline, please cite **[Improving confidence of differential transcription calls in enhancers](https://doi.org/10.1101/2025.09.12.675852)**
 
-## Contact Information
+<H2 id="Contact">Contact Info</H2>
 If you have questions, reach out to hope.townsend@colorado.edu.
 
 
